@@ -3,6 +3,7 @@ import { ipcMain } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { isPlanDate, parseSettings } from '../shared/schedule'
 import { SLOTS, type CheckAction, type ParseResult, type Settings, type Slot } from '../shared/types'
+import { applyAutoLaunch } from './autoLaunch'
 import { getSettings, saveSettings } from './db/settings'
 import { getStatsView, getTodayView, recordCheck, undoCheck } from './today'
 
@@ -14,6 +15,7 @@ export function registerScheduleHandlers(db: DatabaseSync, onChanged: () => void
     const parsed = parseSettings(raw)
     if (parsed.ok) {
       saveSettings(db, parsed.value)
+      applyAutoLaunch(parsed.value.autoLaunch)
       onChanged()
     }
     return parsed

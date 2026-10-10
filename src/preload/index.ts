@@ -48,6 +48,11 @@ const api: PillMateApi = {
     get: (days) => ipcRenderer.invoke('stats:get', days)
   },
 
+  app: {
+    envInfo: () => ipcRenderer.invoke('app:env-info'),
+    openEnvFolder: () => ipcRenderer.invoke('app:open-env-folder')
+  },
+
   testAlarm: () => ipcRenderer.send('alarm:test'),
 
   alarm: {

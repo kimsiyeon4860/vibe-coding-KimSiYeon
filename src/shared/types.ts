@@ -73,6 +73,19 @@ export interface Settings {
   repeatIntervalMinutes: number
   /** 첫 알림 뒤 다시 알리는 최대 횟수. 넘으면 소리 없이 팝업만 남는다 */
   repeatMaxCount: number
+  /** Windows 시작 시 자동 실행 (설치한 앱에서만 적용) */
+  autoLaunch: boolean
+}
+
+/** 설정 탭의 '검색 API 키' 상태 */
+export interface EnvInfo {
+  hasSearchKey: boolean
+  /** 견본 키(sample, 최대 5건)를 쓰는 중 */
+  isSampleKey: boolean
+  /** 앱이 읽는 .env 파일 경로 */
+  envPath: string
+  /** 설치한 앱인지 (자동 실행은 설치한 앱에서만) */
+  isPackaged: boolean
 }
 
 // ---------------------------------------------------------------- 영양제
@@ -297,6 +310,11 @@ export interface PillMateApi {
   stats: {
     /** 최근 7일 또는 30일 복용 통계 */
     get: (days: 7 | 30) => Promise<StatsView>
+  }
+  app: {
+    envInfo: () => Promise<EnvInfo>
+    /** .env가 있어야 하는 폴더를 파일 탐색기로 연다 */
+    openEnvFolder: () => Promise<void>
   }
   /** 테스트 알람 울리기 */
   testAlarm: () => void

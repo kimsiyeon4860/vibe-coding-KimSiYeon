@@ -4,8 +4,13 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
 
+/** 앱이 읽는 .env 경로 */
+export function envFilePath(): string {
+  return app.isPackaged ? join(app.getPath('userData'), '.env') : join(process.cwd(), '.env')
+}
+
 export function loadEnv(): void {
-  const path = app.isPackaged ? join(app.getPath('userData'), '.env') : join(process.cwd(), '.env')
+  const path = envFilePath()
   if (!existsSync(path)) return
   try {
     process.loadEnvFile(path)

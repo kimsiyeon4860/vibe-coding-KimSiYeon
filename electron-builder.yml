@@ -1,13 +1,23 @@
-# 설치 파일 빌드 설정 (실제 사용은 로드맵 7단계)
+# Windows 설치 파일 빌드 설정 — npm run build:win → dist/PillMate-Setup-<버전>.exe
 appId: com.pillmate.app
 productName: PillMate
 directories:
   output: dist
+  buildResources: build
 files:
   - out/**/*
   - package.json
 win:
   target: nsis
+  icon: build/icon.png
+  artifactName: PillMate-Setup-${version}.${ext}
 nsis:
+  # 관리자 권한 없이 내 계정에만 설치, 설치 폴더 선택 가능
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PillMate
+  # 지워도 %APPDATA%\PillMate 의 복용 기록·설정은 남긴다
+  deleteAppDataOnUninstall: false

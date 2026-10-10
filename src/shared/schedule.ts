@@ -32,7 +32,8 @@ export const DEFAULT_SETTINGS: Settings = {
   alarmSound: true,
   snoozeMinutes: 10,
   repeatIntervalMinutes: 5,
-  repeatMaxCount: 6
+  repeatMaxCount: 6,
+  autoLaunch: true
 }
 
 // ---------------------------------------------------------------- 시간 문자열
@@ -230,6 +231,7 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
   const repeatIntervalMinutes = parseInteger(input.repeatIntervalMinutes, '재알림 간격', 1, 30, '분', errors)
   const repeatMaxCount = parseInteger(input.repeatMaxCount, '재알림 최대 횟수', 0, 20, '회', errors)
   if (typeof input.alarmSound !== 'boolean') errors.push('알람 소리 설정이 올바르지 않습니다')
+  if (typeof input.autoLaunch !== 'boolean') errors.push('자동 실행 설정이 올바르지 않습니다')
 
   // 기상 → 아침 → 점심 → 저녁 → 취침 순서인지 (취침은 자정을 넘어도 된다)
   if (errors.length === 0) {
@@ -267,7 +269,8 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
       alarmSound: input.alarmSound as boolean,
       snoozeMinutes,
       repeatIntervalMinutes,
-      repeatMaxCount
+      repeatMaxCount,
+      autoLaunch: input.autoLaunch as boolean
     }
   }
 }

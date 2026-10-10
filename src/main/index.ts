@@ -1,7 +1,10 @@
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
+import { registerAppHandlers } from './appHandlers'
+import { applyAutoLaunch } from './autoLaunch'
 import { openDatabase } from './db/connection'
+import { getSettings } from './db/settings'
 import { loadEnv } from './env'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { registerAlarmHandlers } from './notifier'
@@ -32,11 +35,11 @@ if (!app.requestSingleInstanceLock()) {
 
 function start(): void {
   app.setAppUserModelId(APP_ID)
-  setupAutoLaunch()
   loadEnv()
 
   // DB 파일 위치: %APPDATA%\PillMate\pillmate.db
   db = openDatabase(join(app.getPath('userData'), 'pillmate.db'))
+  applyAutoLaunch(getSettings(db).autoLaunch)
 
   createTray()
   // Windows 시작 시 자동 실행된 경우(--minimized)에는 트레이에만 둔다
@@ -49,6 +52,7 @@ function start(): void {
   registerSupplementHandlers(db, activeScheduler.refresh)
   registerPrescriptionHandlers(db, activeScheduler.refresh)
   registerSearchHandlers()
+  registerAppHandlers()
   registerScheduleHandlers(db, activeScheduler.refresh)
   ipcMain.on('alarm:test', activeScheduler.testAlarm)
 }
@@ -114,10 +118,4 @@ function createTray(): void {
     ])
   )
   tray.on('click', showMainWindow)
-}
-
-/** Windows 로그인 시 자동 실행. 개발 모드에서는 개발용 Electron이 등록되므로 설치된 앱에서만 켠다 */
-function setupAutoLaunch(): void {
-  if (!app.isPackaged) return
-  app.setLoginItemSettings({ openAtLogin: true, args: ['--minimized'] })
 }

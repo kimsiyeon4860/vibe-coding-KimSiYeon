@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { computeSlotTimes, parseSettings } from '../../../shared/schedule'
-import { SLOT_LABELS, SLOTS, type Settings, type Slot } from '../../../shared/types'
+import { SLOT_LABELS, SLOTS, type EnvInfo, type Settings, type Slot } from '../../../shared/types'
 
 /** 입력 창 값 (숫자 칸도 입력 중에는 문자열) */
 interface SettingsDraft {
@@ -16,6 +16,7 @@ interface SettingsDraft {
   snoozeMinutes: string
   repeatIntervalMinutes: string
   repeatMaxCount: string
+  autoLaunch: boolean
 }
 
 const TIME_FIELDS = [
@@ -57,6 +58,12 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState<SettingsDraft | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  const [envInfo, setEnvInfo] = useState<EnvInfo | null>(null)
+
+  useEffect(() => {
+    void window.api.app.envInfo().then(setEnvInfo)
+  }, [])
 
   useEffect(() => {
     void window.api.settings.get().then((s) => setDraft(toDraft(s)))
@@ -231,6 +238,15 @@ export default function SettingsPage() {
           최대 횟수를 넘으면 소리는 멈추지만 알람 창은 응답할 때까지 화면에 남아 있습니다.
         </p>
 
+        <h3 className="mt-6 font-semibold">앱</h3>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={draft.autoLaunch} onChange={(e) => update({ autoLaunch: e.target.checked })} />
+          Windows 시작 시 자동 실행 (작업표시줄 트레이에만 뜹니다)
+        </label>
+        {envInfo && !envInfo.isPackaged && (
+          <p className="mt-1 text-xs text-slate-500">개발 모드에서는 적용되지 않고, 설치한 앱에서만 적용됩니다.</p>
+        )}
+
         {errors.length > 0 && (
           <ul role="alert" className="mt-4 space-y-1 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
             {errors.map((e) => (
@@ -249,6 +265,34 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
+
+      {envInfo && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold">제품 검색 (식품안전나라)</h2>
+          <p className="mt-1 text-sm">
+            API 키:{' '}
+            {!envInfo.hasSearchKey ? (
+              <b className="text-red-700">없음 — 검색 없이 직접 입력만 됩니다</b>
+            ) : envInfo.isSampleKey ? (
+              <b className="text-amber-700">견본 키 사용 중 (검색 결과 최대 5건)</b>
+            ) : (
+              <b className="text-green-700">설정됨</b>
+            )}
+          </p>
+          <p className="mt-1 break-all text-xs text-slate-500">
+            키 파일: {envInfo.envPath}
+            <br />이 파일에 <code>FOODSAFETY_API_KEY=발급받은키</code> 한 줄을 넣고 앱을 다시 켜세요. 파일은 메모장이나
+            VS Code로 여세요.
+          </p>
+          <button
+            type="button"
+            onClick={() => void window.api.app.openEnvFolder()}
+            className="mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          >
+            키 파일 폴더 열기
+          </button>
+        </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">알람 테스트</h2>

@@ -161,8 +161,9 @@ describe('toAlarmItem', () => {
 })
 
 describe('알람 설정 검사', () => {
-  it('기본값: 소리 켬, 스누즈 10분, 5분마다 최대 6번', () => {
+  it('기본값: 소리 켬, 스누즈 10분, 5분마다 최대 6번, 자동 실행 켬', () => {
     expect(DEFAULT_SETTINGS).toMatchObject({
+      autoLaunch: true,
       alarmSound: true,
       snoozeMinutes: 10,
       repeatIntervalMinutes: 5,
@@ -174,7 +175,8 @@ describe('알람 설정 검사', () => {
     ['snoozeMinutes', 0, '다시 알림(스누즈): 1~60분 사이의 정수로 입력해 주세요'],
     ['repeatIntervalMinutes', 31, '재알림 간격: 1~30분 사이의 정수로 입력해 주세요'],
     ['repeatMaxCount', -1, '재알림 최대 횟수: 0~20회 사이의 정수로 입력해 주세요'],
-    ['alarmSound', 'yes', '알람 소리 설정이 올바르지 않습니다']
+    ['alarmSound', 'yes', '알람 소리 설정이 올바르지 않습니다'],
+    ['autoLaunch', undefined, '자동 실행 설정이 올바르지 않습니다']
   ])('%s = %s 은 오류', (field, value, message) => {
     expect(parseSettings({ ...DEFAULT_SETTINGS, [field]: value })).toEqual({ ok: false, errors: [message] })
   })
