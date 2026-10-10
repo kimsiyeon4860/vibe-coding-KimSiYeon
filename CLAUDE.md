@@ -86,6 +86,7 @@ npx vitest run -t "테스트 이름"                 # 이름으로 특정 테�
 - 실제 DB 파일: `%APPDATA%\PillMate\pillmate.db` (`app.getPath('userData')`).
 
 - 개발 중 앱이 이미 트레이에 떠 있으면 `npm run dev`로 새로 띄운 앱은 단일 인스턴스 잠금 때문에 바로 종료된다. 트레이 메뉴 "종료"로 먼저 끈다.
+- **사용자가 설치한 PillMate를 쓰는 중이면 끄지 말고**(알람이 멈춤) 임시 데이터 폴더로 따로 띄운다: `npx electron-vite dev -- --user-data-dir=<임시 폴더>`. 실제 DB(`%APPDATA%\PillMate`)와 잠금이 분리된다. 이때 `.env`는 프로젝트 폴더 것을 읽는다.
 - 알람을 실제 앱에서 빨리 확인하려면 설정에서 스누즈·재알림 간격을 1분으로 줄이고, 영양제 시간을 1분 뒤로 직접 지정한다. 확인 후 테스트 데이터·설정을 지울 것 (실제 DB는 사용자 데이터).
 - 설치용 빌드 점검: `dist\win-unpacked\PillMate.exe --remote-debugging-port=9333 --inspect=9229` 로 같은 방식으로 점검할 수 있다. **설치 앱(isPackaged)은 켜자마자 시작프로그램(HKCU Run의 `com.pillmate.app`)에 자기 경로를 등록하므로, 시험 실행 후 `app.setLoginItemSettings({openAtLogin:false, args:['--minimized']})`로 해제할 것.** 설치 앱은 `%APPDATA%\PillMate\.env`를 읽는다.
 - 화면 모양 확인: 같은 9333 포트로 `Page.captureScreenshot`을 보내 PNG로 저장해 본다 (Browser pane은 Electron 창을 못 띄움).

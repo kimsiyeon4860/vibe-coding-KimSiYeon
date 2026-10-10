@@ -83,8 +83,9 @@ export function parseStandardIngredients(standard: string): IngredientDraft[] {
     if (!name) continue
 
     // 함량: 이름 뒤에서 처음 나오는 "숫자 [괄호] 단위 /" (예: 25ug/, 10 ㎍ /, 10,000(100억)CFU/)
+    // 단위는 띄어 쓴 경우도 있다 (예: "15mg NE/", "11 mg α-TE /")
     const rest = line.slice(nameEnd)
-    const match = /(\d[\d,.]*)\s*(?:\([^)]*\))?\s*([A-Za-zµμ㎍㎎α-]*)\s*\//.exec(rest)
+    const match = /(\d[\d,.]*)\s*(?:\([^)]*\))?\s*([A-Za-zµμ㎍㎎α-]*(?:\s+[A-Za-zµμ㎍㎎α-]+)*)\s*\//.exec(rest)
     const amount = match ? parseAmount(match[1]) : null
     result.push({
       name,

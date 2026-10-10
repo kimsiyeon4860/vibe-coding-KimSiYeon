@@ -15,6 +15,8 @@ export default function ProductSearch({ onPick }: Props) {
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
   const [picked, setPicked] = useState<string | null>(null)
+  /** 마지막 검색에 제조사를 넣었는지 (결과가 없을 때 안내용) */
+  const [searchedWithMaker, setSearchedWithMaker] = useState(false)
 
   const search = async () => {
     if (!name.trim()) {
@@ -23,6 +25,7 @@ export default function ProductSearch({ onPick }: Props) {
     }
     setSearching(true)
     setError('')
+    setSearchedWithMaker(manufacturer.trim() !== '')
     try {
       const result = await window.api.search.supplements(name, manufacturer)
       if (result.ok) {
@@ -63,7 +66,8 @@ export default function ProductSearch({ onPick }: Props) {
           value={manufacturer}
           onChange={(e) => setManufacturer(e.target.value)}
           onKeyDown={onEnter}
-          placeholder="제조사 (선택)"
+          placeholder="제조 공장 (보통 비워 두세요)"
+          title="식품안전나라에는 판매사(예: 동국제약)가 아니라 실제로 만든 공장(예: 콜마비앤에이치)이 등록되어 있어, 판매사를 넣으면 검색되지 않습니다."
           aria-label="검색할 제조사"
           className={`${inputClass} flex-1`}
         />
@@ -80,9 +84,19 @@ export default function ProductSearch({ onPick }: Props) {
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
 
       {items !== null && items.length === 0 && (
-        <p className="mt-2 text-sm text-slate-600">
-          검색 결과가 없습니다. 해외 직구 제품 등은 등록되어 있지 않을 수 있으니 아래에 직접 입력해 주세요.
-        </p>
+        <div className="mt-2 space-y-1 text-sm text-slate-600">
+          <p>검색 결과가 없습니다.</p>
+          {searchedWithMaker && (
+            <p className="font-medium text-amber-800">
+              제조사 칸을 비우고 다시 검색해 보세요. 식품안전나라에는 판매사가 아니라 실제로 만든 공장 이름이 등록되어
+              있습니다.
+            </p>
+          )}
+          <p className="text-xs">
+            이 검색은 <b>건강기능식품</b>만 찾습니다. 일반의약품(약국 비타민제 등), 일반 식품(음료·젤리 등), 해외 직구 제품은
+            나오지 않으니 아래에 직접 입력해 주세요.
+          </p>
+        </div>
       )}
 
       {items !== null && items.length > 0 && (
