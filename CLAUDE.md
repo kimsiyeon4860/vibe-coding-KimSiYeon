@@ -2,10 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# 필메이트 (PillMate) — 영양제·약 복용 관리 데스크톱 앱
+# 필메이트 (PillMate) — 영양제·약 복용 관리 웹 앱
 
 > 앱 이름은 임시. 이 파일은 Claude Code가 매 세션 시작 시 읽는 프로젝트 안내서다.
 > 기능을 추가하거나 결정이 바뀌면 이 파일도 함께 갱신한다.
+
+## ★ 과제 조건 (절대 조건 — 모든 계획은 먼저 이것과 대조할 것)
+
+- **결과물은 브라우저에서 실행되는 정적 웹 애플리케이션 1개**, **GitHub Pages**로 제출한다 (서버 없음).
+- 저장소 이름 `vibe-coding-이름`, 마감 **10/12 자정** (e-class에 데모 링크·성찰기 발표 자료 업로드). 10/13부터 발표(7분 + 질의 3~5분).
+- 이 조건을 처음에 놓쳐 Windows 데스크톱(Electron) 앱으로 만들었다가, 핵심 로직을 `src/core`·`src/shared`로 분리해 둔 덕에 **웹판(`src/web`)으로 옮겼다**. 데스크톱판은 부록으로 남아 있다. → 새 기능은 **웹판에서 동작하는지 먼저** 확인한다.
+- 웹판 구조: sql.js(브라우저용 SQLite) + IndexedDB 저장, `window.api`를 `src/web/platform.ts`가 브라우저 안에서 구현(같은 `core/api`·`alarmEngine`·`promptEngine` 사용), 알람·확인 창은 페이지 안 오버레이(`src/web/WebRoot.tsx`)로 같은 React 컴포넌트를 띄운다. 검색 API는 두 기관 모두 CORS를 허용해 브라우저에서 직접 부른다(키는 설정 화면 → localStorage, 식품안전나라 기본 `sample`).
+- 웹판 한계: 탭이 열려 있어야 알람, 데이터는 그 브라우저에만(설정의 백업), 같은 브라우저에서 탭 하나(Web Locks).
 
 ## 0. 현재 저장소 상태 (2026-10-10 기준)
 
@@ -68,6 +76,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 4. 명령어
 
+웹판 (제출물):
+
+```bash
+npm run dev:web      # 웹판 개발 서버 (vite.web.config.ts, root = web/)
+npm run build:web    # 웹판 빌드 → dist-web/  (main push 시 .github/workflows/pages.yml이 테스트·빌드·Pages 배포)
+npm run preview:web  # 빌드 결과 미리보기 (Claude Browser: .claude/launch.json 'web-preview', 포트 4173)
+```
+
+- Tailwind는 웹 빌드 기준 폴더가 `web/`라서 `src/renderer/src/index.css`의 `@source '../..'`로 `src/` 전체를 스캔한다 (빠지면 CSS가 4KB로 줄어든다).
+- `sql.js`는 웹 빌드에만 묶이므로 devDependencies (데스크톱 설치 파일에 안 들어가게).
+
+데스크톱판 (부록):
+
 ```bash
 npm install          # 의존성 설치
 npm run dev          # 개발 모드 실행 (핫 리로드)
@@ -94,34 +115,30 @@ npx vitest run -t "테스트 이름"                 # 이름으로 특정 테�
 - 화면 모양 확인: 같은 9333 포트로 `Page.captureScreenshot`을 보내 PNG로 저장해 본다 (Browser pane은 Electron 창을 못 띄움).
 - 실행 중인 앱을 자동으로 점검할 때: `npx electron-vite dev --inspect 9229 --remoteDebuggingPort 9333` → 메인 프로세스는 9229, 화면은 9333(`/json/list`)에 CDP로 접속해 `Runtime.evaluate`.
 
-## 5. 폴더 구조 (목표)
+## 5. 폴더 구조
 
 ```
 src/
-  main/              # Electron 메인 프로세스 (Node.js 환경)
-    index.ts         # 앱 시작, 트레이, 자동 실행, 단일 인스턴스
-    scheduler.ts     # 알람 시간 체크, 놓친 알람 처리
-    notifier.ts      # OS 알림 + 알람 팝업 창 + 소리
-    db/              # SQLite 연결, 스키마, 마이그레이션, 쿼리
-    services/        # 공공데이터 API 호출 (foodSafety.ts)
-  preload/           # 메인 ↔ 화면 사이의 안전한 통로 (contextBridge)
-  shared/types.ts    # 메인·preload·화면 공용 타입. window.api 형태(PillMateApi)도 여기서 정의
-  renderer/          # React 화면 (Vite root)
-    index.html       # 메인 창
-    alarm.html       # 알람 팝업 창 (별도 페이지, electron.vite.config.ts의 input에 등록)
-    src/
-      pages/         # 오늘 복용, 영양제 목록, 처방약, 설정
-      components/
-rules/
-  timing-rules.json  # 성분별 복용 시점·함께 먹으면 안 되는 조합
-tests/
-.env.example         # 필요한 환경변수 목록 (값은 비움)
+  core/              # ★ 플랫폼 공통 (데스크톱·웹). Electron·브라우저 API를 import하지 않는다
+    db/              # SQL·마이그레이션·저장소 함수. DB는 공용 인터페이스 SqlDatabase(db/sql.ts)로 받는다
+    today.ts         # 하루 계획·기록·생활 기록·통계 데이터
+    api.ts           # 화면 요청 처리(입력 재검사 포함) — 데스크톱은 IPC로, 웹은 직접 연결
+    alarmEngine.ts   # 알람 판단 (울릴 항목·재알림·스누즈·테스트 알람)
+    promptEngine.ts  # 기상·식사 확인 판단
+    services/        # 공공데이터 검색 (식품안전나라, 공공데이터포털)
+  shared/            # 순수 함수와 타입 (시간·복용일·추천·규칙·통계·입력 검사, PillMateApi 타입)
+  renderer/          # React 화면 (웹·데스크톱 공통). window.api만 부른다
+    src/AlarmPopup.tsx, LifePrompt.tsx   # 데스크톱은 별도 창, 웹은 페이지 안 오버레이로 같은 컴포넌트를 띄움
+  web/               # ★ 웹판 플랫폼: boot.tsx(sql.js·IndexedDB), platform.ts(window.api·타이머·브라우저 알림), WebRoot.tsx
+  main/, preload/    # 데스크톱판(Electron): ipc.ts, scheduler.ts, notifier.ts, lifePrompt.ts, 트레이·자동 실행
+web/index.html       # 웹판 진입 HTML (vite.web.config.ts의 root)
+rules/timing-rules.json
+tests/               # Vitest (node:sqlite와 sql.js 양쪽으로 DB 검증)
 ```
 
-- 외부 API 호출과 DB 접근은 **메인 프로세스에서만** 한다. renderer에서 직접 하지 않는다.
-- renderer는 preload에 노출된 함수(`window.api.xxx`)로만 메인과 통신한다. 새 기능을 노출할 때는 `PillMateApi` 타입 → `src/preload/index.ts` → `ipcMain` 핸들러 순으로 세 곳을 함께 고친다. IPC 채널 이름은 `영역:동작` 형식(예: `alarm:respond`).
-- 창은 `sandbox: true`, `contextIsolation: true`. preload는 CommonJS로 빌드되므로 `package.json`에 `"type": "module"`을 넣지 않는다.
-- 알람 팝업은 메인 창과 별개의 `BrowserWindow`(`alwaysOnTop`)로 띄운다. 메인 창이 숨겨져 있어도 동작해야 한다.
+- DB 접근·외부 API 호출은 `src/core`에서만 한다. 화면(renderer)은 `window.api`로만 부른다.
+- 새 기능을 노출할 때: `PillMateApi` 타입(shared/types.ts) → `core/api.ts` → **웹** `src/web/platform.ts` + **데스크톱** `src/main/ipc.ts`·`src/preload/index.ts`. 웹·데스크톱에서만 다른 문구는 `window.api.platform`으로 분기.
+- 데스크톱판 창은 `sandbox: true`, `contextIsolation: true`. preload는 CommonJS로 빌드되므로 `package.json`에 `"type": "module"`을 넣지 않는다.
 
 ## 6. 기능 명세
 
