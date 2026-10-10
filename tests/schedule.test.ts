@@ -92,10 +92,15 @@ describe('buildDayPlan', () => {
   const source = (overrides: Partial<ScheduleSource>): ScheduleSource => ({
     productId: 1,
     productName: '비타민D',
+    kind: 'supplement',
     active: true,
     slot: 'breakfast',
     customTime: null,
     dose: '',
+    mealOffset: null,
+    startDate: null,
+    endDate: null,
+    addedAt: '1970-01-01T00:00:00.000Z',
     ...overrides
   })
 

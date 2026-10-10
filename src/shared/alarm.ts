@@ -3,15 +3,21 @@ import type { AlarmItem, DayPlanEntry, Settings } from './types'
 
 const MINUTE_MS = 60_000
 
-/** 지금 울려야 하는 항목: 대기 중 + 예정 시각이 지남 + 스누즈 중이 아님 */
+/**
+ * 지금 울려야 하는 항목: 대기 중 + 예정 시각이 지남 + 스누즈 중이 아님
+ * + 등록하기 전에 이미 지난 시각이 아님 (예: 오후에 아침 약을 등록하면 그 아침 알람은 울리지 않는다).
+ */
 export function dueEntries(entries: DayPlanEntry[], now: Date): DayPlanEntry[] {
   const t = now.getTime()
-  return entries.filter(
-    (e) =>
+  return entries.filter((e) => {
+    const scheduled = Date.parse(e.scheduledAt)
+    return (
       e.status === 'pending' &&
-      Date.parse(e.scheduledAt) <= t &&
+      scheduled <= t &&
+      scheduled >= Date.parse(e.addedAt) &&
       !(e.snoozedUntil !== null && Date.parse(e.snoozedUntil) > t)
-  )
+    )
+  })
 }
 
 export function alarmItemKey(planDate: string, entry: Pick<DayPlanEntry, 'productId' | 'slot'>): string {
@@ -25,6 +31,7 @@ export function toAlarmItem(planDate: string, entry: DayPlanEntry): AlarmItem {
     productId: entry.productId,
     slot: entry.slot,
     productName: entry.productName,
+    kind: entry.kind,
     dose: entry.dose,
     time: entry.time,
     scheduledAt: entry.scheduledAt

@@ -19,6 +19,14 @@ const api: PillMateApi = {
     remove: (id) => ipcRenderer.invoke('supplements:delete', id)
   },
 
+  prescriptions: {
+    list: () => ipcRenderer.invoke('prescriptions:list'),
+    create: (draft) => ipcRenderer.invoke('prescriptions:create', draft),
+    update: (id, draft) => ipcRenderer.invoke('prescriptions:update', id, draft),
+    setActive: (id, active) => ipcRenderer.invoke('prescriptions:set-active', id, active),
+    remove: (id) => ipcRenderer.invoke('prescriptions:delete', id)
+  },
+
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (settings) => ipcRenderer.invoke('settings:save', settings)

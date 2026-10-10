@@ -1,15 +1,7 @@
 // 영양제 저장·조회. DB를 인자로 받아 테스트에서 메모리 DB로 검증할 수 있게 한다.
 import type { DatabaseSync } from 'node:sqlite'
-import type { ScheduleSource } from '../../shared/schedule'
-import {
-  SLOTS,
-  type Ingredient,
-  type ProductSource,
-  type ScheduleItem,
-  type Slot,
-  type Supplement,
-  type SupplementInput
-} from '../../shared/types'
+import type { Ingredient, ProductSource, ScheduleItem, Supplement, SupplementInput } from '../../shared/types'
+import { loadSchedule, loadSchedules, replaceSchedule } from './scheduleItems'
 import { withTransaction } from './transaction'
 
 interface ProductRow {
@@ -27,13 +19,6 @@ interface IngredientRow {
   name: string
   amount: number | null
   unit: string
-}
-
-interface ScheduleRow {
-  product_id: number
-  slot: Slot
-  custom_time: string | null
-  dose: string
 }
 
 const PRODUCT_COLUMNS = 'id, name, manufacturer, label_instruction, source, active, created_at'
@@ -57,32 +42,14 @@ export function listSupplements(db: DatabaseSync): Supplement[] {
     )
     .all() as unknown as IngredientRow[]
 
-  const scheduleRows = db
-    .prepare(
-      `SELECT s.product_id, s.slot, s.custom_time, s.dose FROM schedule_items s
-       JOIN products p ON p.id = s.product_id
-       WHERE p.type = 'supplement'`
-    )
-    .all() as unknown as ScheduleRow[]
-
-  const ingredientsOf = groupBy(ingredientRows, toIngredient)
-  const scheduleOf = groupBy(scheduleRows, toScheduleItem)
-  return products.map((p) =>
-    toSupplement(p, ingredientsOf.get(p.id) ?? [], sortBySlot(scheduleOf.get(p.id) ?? []))
-  )
-}
-
-/** 오늘 계획을 만들 재료: 영양제 × 복용 시점 (사용 중지 여부 포함) */
-export function listScheduleSources(db: DatabaseSync): ScheduleSource[] {
-  const rows = db
-    .prepare(
-      `SELECT p.id AS productId, p.name AS productName, p.active, s.slot, s.custom_time AS customTime, s.dose
-       FROM schedule_items s
-       JOIN products p ON p.id = s.product_id
-       WHERE p.type = 'supplement'`
-    )
-    .all() as unknown as (Omit<ScheduleSource, 'active'> & { active: number })[]
-  return rows.map((r) => ({ ...r, active: r.active === 1 }))
+  const ingredientsOf = new Map<number, Ingredient[]>()
+  for (const row of ingredientRows) {
+    const list = ingredientsOf.get(row.product_id) ?? []
+    list.push(toIngredient(row))
+    ingredientsOf.set(row.product_id, list)
+  }
+  const scheduleOf = loadSchedules(db, 'supplement')
+  return products.map((p) => toSupplement(p, ingredientsOf.get(p.id) ?? [], scheduleOf.get(p.id) ?? []))
 }
 
 export function getSupplement(db: DatabaseSync, id: number): Supplement | null {
@@ -94,10 +61,7 @@ export function getSupplement(db: DatabaseSync, id: number): Supplement | null {
   const ingredients = db
     .prepare('SELECT product_id, name, amount, unit FROM ingredients WHERE product_id = ? ORDER BY id')
     .all(id) as unknown as IngredientRow[]
-  const schedule = db
-    .prepare('SELECT product_id, slot, custom_time, dose FROM schedule_items WHERE product_id = ?')
-    .all(id) as unknown as ScheduleRow[]
-  return toSupplement(product, ingredients.map(toIngredient), sortBySlot(schedule.map(toScheduleItem)))
+  return toSupplement(product, ingredients.map(toIngredient), loadSchedule(db, id))
 }
 
 export function createSupplement(
@@ -115,7 +79,7 @@ export function createSupplement(
       .run(input.name, input.manufacturer, input.labelInstruction, source, now.toISOString())
     const productId = Number(result.lastInsertRowid)
     insertIngredients(db, productId, input.ingredients)
-    insertSchedule(db, productId, input.schedule)
+    replaceSchedule(db, productId, input.schedule, now)
     return productId
   })
   return getSupplement(db, id)!
@@ -125,7 +89,12 @@ export function createSupplement(
  * 수정. 성분과 복용 시점은 통째로 새 목록으로 바꾼다. 없는 id면 null.
  * 복용 기록(intake_logs)은 일정과 따로 저장되므로 시점을 바꿔도 과거 기록은 남는다.
  */
-export function updateSupplement(db: DatabaseSync, id: number, input: SupplementInput): Supplement | null {
+export function updateSupplement(
+  db: DatabaseSync,
+  id: number,
+  input: SupplementInput,
+  now: Date = new Date()
+): Supplement | null {
   const updated = withTransaction(db, () => {
     const result = db
       .prepare(
@@ -136,8 +105,7 @@ export function updateSupplement(db: DatabaseSync, id: number, input: Supplement
     if (result.changes === 0) return false
     db.prepare('DELETE FROM ingredients WHERE product_id = ?').run(id)
     insertIngredients(db, id, input.ingredients)
-    db.prepare('DELETE FROM schedule_items WHERE product_id = ?').run(id)
-    insertSchedule(db, id, input.schedule)
+    replaceSchedule(db, id, input.schedule, now)
     return true
   })
   return updated ? getSupplement(db, id) : null
@@ -157,31 +125,8 @@ function insertIngredients(db: DatabaseSync, productId: number, ingredients: Ing
   for (const ing of ingredients) insert.run(productId, ing.name, ing.amount, ing.unit)
 }
 
-function insertSchedule(db: DatabaseSync, productId: number, schedule: ScheduleItem[]): void {
-  const insert = db.prepare('INSERT INTO schedule_items (product_id, slot, custom_time, dose) VALUES (?, ?, ?, ?)')
-  for (const item of schedule) insert.run(productId, item.slot, item.customTime, item.dose)
-}
-
-function groupBy<R extends { product_id: number }, T>(rows: R[], map: (row: R) => T): Map<number, T[]> {
-  const result = new Map<number, T[]>()
-  for (const row of rows) {
-    const list = result.get(row.product_id) ?? []
-    list.push(map(row))
-    result.set(row.product_id, list)
-  }
-  return result
-}
-
-function sortBySlot(items: ScheduleItem[]): ScheduleItem[] {
-  return [...items].sort((a, b) => SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot))
-}
-
 function toIngredient(row: IngredientRow): Ingredient {
   return { name: row.name, amount: row.amount, unit: row.unit }
-}
-
-function toScheduleItem(row: ScheduleRow): ScheduleItem {
-  return { slot: row.slot, customTime: row.custom_time, dose: row.dose }
 }
 
 function toSupplement(row: ProductRow, ingredients: Ingredient[], schedule: ScheduleItem[]): Supplement {

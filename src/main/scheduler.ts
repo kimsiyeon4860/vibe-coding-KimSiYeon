@@ -84,6 +84,7 @@ export function startScheduler(db: DatabaseSync, onRecorded: () => void): Schedu
         productId: 0,
         slot: 'wake',
         productName: '테스트 알람',
+        kind: 'supplement',
         dose: '알람이 잘 보이고 들리는지 확인하는 테스트입니다',
         time: clockOf(now.toISOString()),
         scheduledAt: now.toISOString(),

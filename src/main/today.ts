@@ -4,7 +4,7 @@ import { buildDayPlan, planDateFor } from '../shared/schedule'
 import type { AlarmAction, DayPlanEntry, Slot, TodayView } from '../shared/types'
 import { addIntakeLog, listIntakeLogs, undoIntake } from './db/intakeLogs'
 import { getSettings } from './db/settings'
-import { listScheduleSources } from './db/supplements'
+import { listScheduleSources } from './db/scheduleItems'
 
 /** 복용일 하루의 계획 */
 export function getDayPlan(db: DatabaseSync, planDate: string): DayPlanEntry[] {
@@ -14,7 +14,9 @@ export function getDayPlan(db: DatabaseSync, planDate: string): DayPlanEntry[] {
 /** 지금 시각 기준 오늘 화면 */
 export function getTodayView(db: DatabaseSync, now: Date = new Date()): TodayView {
   const planDate = planDateFor(now, getSettings(db))
-  return { planDate, entries: getDayPlan(db, planDate) }
+  const entries = getDayPlan(db, planDate)
+  const kinds = new Set(entries.map((e) => e.kind))
+  return { planDate, entries, mixesPrescriptionAndSupplement: kinds.has('prescription') && kinds.has('supplement') }
 }
 
 /** 먹음/건너뜀/스누즈 기록. 계획에 없는 항목이면 false */

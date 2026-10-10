@@ -8,6 +8,7 @@ export interface AlarmItem {
   productId: number
   slot: Slot
   productName: string
+  kind: ProductKind
   dose: string
   /** 예정 시각 "HH:mm" */
   time: string
@@ -73,6 +74,9 @@ export interface Settings {
 }
 
 // ---------------------------------------------------------------- 영양제
+
+/** 제품 종류: 영양제 / 병원 처방약 */
+export type ProductKind = 'supplement' | 'prescription'
 
 /** 제품 정보를 어디서 가져왔는지: 직접 입력 / 공공데이터 / 웹 검색 / 사진 */
 export type ProductSource = 'manual' | 'public_data' | 'web_search' | 'photo'
@@ -145,6 +149,57 @@ export interface SupplementInput {
 
 export type SaveResult = { ok: true; supplement: Supplement } | { ok: false; errors: string[] }
 
+// ---------------------------------------------------------------- 처방약
+
+/** 처방약 식사 기준: 식전 / 식후 */
+export type MealTiming = 'before' | 'after'
+
+export const MEAL_TIMING_LABELS: Record<MealTiming, string> = { before: '식전', after: '식후' }
+
+/** 저장된 처방약. 처방전 지시가 최우선이므로 앱이 시점을 자동으로 바꾸지 않는다 */
+export interface Prescription {
+  id: number
+  name: string
+  /** false면 사용자가 '복용 종료'함 */
+  active: boolean
+  createdAt: string
+  mealTiming: MealTiming
+  /** 식전·식후 N분 (아침·점심·저녁에만 적용) */
+  mealOffsetMinutes: number
+  /** 복용 시작 복용일 "yyyy-MM-dd" */
+  startDate: string
+  /** 처방 일수. null이면 계속 복용 */
+  days: number | null
+  memo: string
+  /** 먹는 때 (하루 횟수 = 개수) */
+  schedule: ScheduleItem[]
+}
+
+/** 입력 창 값 그대로 (숫자 칸도 문자열) */
+export interface PrescriptionDraft {
+  name: string
+  mealTiming: string
+  mealOffsetMinutes: string
+  startDate: string
+  /** 비우면 계속 복용 */
+  days: string
+  memo: string
+  schedule: ScheduleDraft[]
+}
+
+/** 검사를 통과한 처방약 입력값 */
+export interface PrescriptionInput {
+  name: string
+  mealTiming: MealTiming
+  mealOffsetMinutes: number
+  startDate: string
+  days: number | null
+  memo: string
+  schedule: ScheduleItem[]
+}
+
+export type PrescriptionSaveResult = { ok: true; prescription: Prescription } | { ok: false; errors: string[] }
+
 // ---------------------------------------------------------------- 오늘 복용
 
 /** 오늘 화면에서 직접 누르는 응답 (snoozed는 알람 팝업에서만) */
@@ -165,6 +220,7 @@ export type EntryStatus = 'pending' | CheckAction
 export interface DayPlanEntry {
   productId: number
   productName: string
+  kind: ProductKind
   slot: Slot
   dose: string
   /** 알람 시각 "HH:mm" */
@@ -176,6 +232,8 @@ export interface DayPlanEntry {
   actedAt: string | null
   /** 마지막 스누즈가 끝나는 일시 (ISO 8601). 스누즈한 적 없으면 null */
   snoozedUntil: string | null
+  /** 이 복용 시점을 등록한 일시. 이보다 이른 예정 시각은 알람을 울리지 않는다 (등록 전에 이미 지난 시간) */
+  addedAt: string
 }
 
 /** 오늘 화면 데이터 */
@@ -183,6 +241,8 @@ export interface TodayView {
   /** 복용일 "yyyy-MM-dd". 취침이 자정을 넘으면 새벽에도 전날일 수 있다 */
   planDate: string
   entries: DayPlanEntry[]
+  /** 오늘 처방약과 영양제를 함께 먹는지 → "약사에게 확인하세요" 안내 */
+  mixesPrescriptionAndSupplement: boolean
 }
 
 // ---------------------------------------------------------------- window.api
@@ -193,6 +253,14 @@ export interface PillMateApi {
     list: () => Promise<Supplement[]>
     create: (draft: SupplementDraft) => Promise<SaveResult>
     update: (id: number, draft: SupplementDraft) => Promise<SaveResult>
+    setActive: (id: number, active: boolean) => Promise<void>
+    remove: (id: number) => Promise<void>
+  }
+  prescriptions: {
+    list: () => Promise<Prescription[]>
+    create: (draft: PrescriptionDraft) => Promise<PrescriptionSaveResult>
+    update: (id: number, draft: PrescriptionDraft) => Promise<PrescriptionSaveResult>
+    /** false = 복용 종료, true = 다시 복용 */
     setActive: (id: number, active: boolean) => Promise<void>
     remove: (id: number) => Promise<void>
   }

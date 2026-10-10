@@ -42,6 +42,9 @@ export default function AlarmPopup() {
               <div className="flex items-baseline gap-3">
                 <span className="font-mono text-sm text-indigo-600">{item.time}</span>
                 <span className="text-lg font-semibold">{item.productName}</span>
+                {item.kind === 'prescription' && (
+                  <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-700">처방</span>
+                )}
                 {overdue && <span className="ml-auto text-xs font-medium text-amber-700">{overdue}</span>}
               </div>
               {item.dose && <p className="mt-1 text-sm text-slate-500">{item.dose}</p>}

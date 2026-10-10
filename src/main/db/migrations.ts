@@ -61,6 +61,21 @@ export const MIGRATIONS: readonly string[] = [
   );
 
   CREATE INDEX idx_intake_logs_plan_date ON intake_logs(plan_date);
+  `,
+
+  // 3: 처방약 (로드맵 4단계) + 복용 시점 등록 시각
+  `
+  CREATE TABLE prescriptions (
+    product_id          INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+    meal_timing         TEXT    NOT NULL CHECK (meal_timing IN ('before', 'after')),
+    meal_offset_minutes INTEGER NOT NULL,
+    start_date          TEXT    NOT NULL,  -- 복용일 "yyyy-MM-dd"
+    days                INTEGER,           -- NULL = 계속 복용
+    memo                TEXT    NOT NULL DEFAULT ''
+  );
+
+  -- 이보다 이른 예정 시각은 알람을 울리지 않는다 (등록 전에 이미 지난 시간). 기존 행은 아주 옛날로 둔다
+  ALTER TABLE schedule_items ADD COLUMN created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z';
   `
 ]
 

@@ -1,12 +1,13 @@
 import { useState } from 'react'
+import PrescriptionsPage from './pages/PrescriptionsPage'
 import SettingsPage from './pages/SettingsPage'
 import SupplementsPage from './pages/SupplementsPage'
 import TodayPage from './pages/TodayPage'
 
-// 탭은 기능이 생기는 단계마다 추가한다 (처방약은 4단계)
 const TABS = [
   { key: 'today', label: '오늘 복용' },
   { key: 'supplements', label: '영양제' },
+  { key: 'prescriptions', label: '처방약' },
   { key: 'settings', label: '설정' }
 ] as const
 
@@ -40,6 +41,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto">
         {tab === 'today' && <TodayPage />}
         {tab === 'supplements' && <SupplementsPage />}
+        {tab === 'prescriptions' && <PrescriptionsPage />}
         {tab === 'settings' && <SettingsPage />}
       </main>
     </div>

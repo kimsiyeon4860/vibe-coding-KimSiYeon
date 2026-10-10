@@ -3,6 +3,7 @@ import { ko } from 'date-fns/locale'
 import { useCallback, useEffect, useState } from 'react'
 import { clockOf } from '../../../shared/schedule'
 import { SLOT_LABELS, type CheckAction, type DayPlanEntry, type TodayView } from '../../../shared/types'
+import PharmacistNotice from '../components/PharmacistNotice'
 
 /** 같은 시각·슬롯끼리 묶은 한 덩어리 */
 interface Group {
@@ -71,11 +72,13 @@ export default function TodayPage() {
         )}
       </div>
 
+      {view.mixesPrescriptionAndSupplement && <PharmacistNotice />}
+
       {view.entries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
-          오늘 먹을 영양제가 없습니다.
+          오늘 먹을 약이 없습니다.
           <br />
-          <b>영양제</b> 탭에서 영양제를 추가하고 <b>복용 시점</b>을 골라 주세요.
+          <b>영양제</b>·<b>처방약</b> 탭에서 추가하고 먹는 때를 골라 주세요.
         </div>
       ) : (
         <ol className="space-y-4">
@@ -130,6 +133,7 @@ function EntryRow({ entry, overdue, snoozed, onCheck, onUndo }: EntryRowProps) {
         <span className={`font-semibold ${entry.status === 'skipped' ? 'text-slate-400 line-through' : ''}`}>
           {entry.productName}
         </span>
+        {entry.kind === 'prescription' && <PrescriptionBadge />}
         {entry.dose && <span className="ml-2 text-sm text-slate-500">{entry.dose}</span>}
         {snoozed && entry.snoozedUntil ? (
           <span className="ml-2 text-xs font-medium text-indigo-600">{clockOf(entry.snoozedUntil)}에 다시 알림</span>
@@ -168,4 +172,8 @@ function EntryRow({ entry, overdue, snoozed, onCheck, onUndo }: EntryRowProps) {
       )}
     </li>
   )
+}
+
+function PrescriptionBadge() {
+  return <span className="ml-2 rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-700">처방</span>
 }

@@ -9,6 +9,7 @@ const MIN = 60_000
 const entry = (overrides: Partial<DayPlanEntry> = {}): DayPlanEntry => ({
   productId: 1,
   productName: '비타민D',
+  kind: 'supplement',
   slot: 'breakfast',
   dose: '',
   time: '08:15',
@@ -16,6 +17,7 @@ const entry = (overrides: Partial<DayPlanEntry> = {}): DayPlanEntry => ({
   status: 'pending',
   actedAt: null,
   snoozedUntil: null,
+  addedAt: '1970-01-01T00:00:00.000Z',
   ...overrides
 })
 
@@ -43,7 +45,19 @@ describe('dueEntries', () => {
 
 describe('스누즈 기록 → snoozedUntil', () => {
   const sources = [
-    { productId: 1, productName: '비타민D', active: true, slot: 'breakfast' as const, customTime: null, dose: '' }
+    {
+      productId: 1,
+      productName: '비타민D',
+      kind: 'supplement' as const,
+      active: true,
+      slot: 'breakfast' as const,
+      customTime: null,
+      dose: '',
+      mealOffset: null,
+      startDate: null,
+      endDate: null,
+      addedAt: '1970-01-01T00:00:00.000Z'
+    }
   ]
 
   it('마지막 스누즈 시각 + 스누즈 시간', () => {
@@ -138,6 +152,7 @@ describe('toAlarmItem', () => {
       productId: 1,
       slot: 'breakfast',
       productName: '비타민D',
+      kind: 'supplement',
       dose: '1정',
       time: '08:15',
       scheduledAt: '2026-10-10T08:15:00.000+09:00'

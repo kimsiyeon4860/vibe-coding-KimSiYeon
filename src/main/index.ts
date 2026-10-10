@@ -4,6 +4,7 @@ import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
 import { openDatabase } from './db/connection'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { registerAlarmHandlers } from './notifier'
+import { registerPrescriptionHandlers } from './prescriptionHandlers'
 import { registerScheduleHandlers } from './scheduleHandlers'
 import { startScheduler, type Scheduler } from './scheduler'
 import { registerSupplementHandlers } from './supplementHandlers'
@@ -43,6 +44,7 @@ function start(): void {
   const activeScheduler = startScheduler(db, () => mainWindow?.webContents.send('today:changed'))
   scheduler = activeScheduler
   registerSupplementHandlers(db, activeScheduler.refresh)
+  registerPrescriptionHandlers(db, activeScheduler.refresh)
   registerScheduleHandlers(db, activeScheduler.refresh)
   ipcMain.on('alarm:test', activeScheduler.testAlarm)
 }

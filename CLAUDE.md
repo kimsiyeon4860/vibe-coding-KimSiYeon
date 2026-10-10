@@ -11,7 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 로드맵 **1단계 완료**: Electron 세팅, 트레이 상주, 테스트 알람(토스트 + 항상 위 팝업 + 소리).
 - 로드맵 **2단계 완료**: 영양제 수동 입력(추가·수정·사용 중지·삭제) + SQLite 저장.
-- 로드맵 3단계는 둘로 나눴다. **3-1 완료**: 생활 시간 설정 → 슬롯 시간 계산, 영양제별 복용 시점, '오늘 복용' 탭에서 직접 체크·되돌리기. **3-2 완료**: 자동 알람 스케줄러, 스누즈·재알림, 절전 복귀 시 놓친 알람. **다음은 4단계(처방약 탭).**
+- 로드맵 3단계는 둘로 나눴다. **3-1 완료**: 생활 시간 설정 → 슬롯 시간 계산, 영양제별 복용 시점, '오늘 복용' 탭에서 직접 체크·되돌리기. **3-2 완료**: 자동 알람 스케줄러, 스누즈·재알림, 절전 복귀 시 놓친 알람.
+- 로드맵 **4단계 완료**: 처방약 탭 (식전·식후 N분, 처방 기간, 복용 종료, 시점 변경 확인 창, 처방약+영양제 함께 복용 시 약사 확인 안내). **다음은 5단계(복용 순서 추천).** 추천은 영양제에만 적용하고 처방약은 건드리지 않는다.
 - 영양제 삭제는 하드 삭제이며 복용 기록도 CASCADE로 함께 지워진다 (사용자 결정). 확인 창에서 기록을 남기려면 '사용 중지'를 쓰라고 안내한다.
 - **Vite는 7에 고정**: electron-vite 5가 Vite 8을 지원하지 않는다. 같은 이유로 `@vitejs/plugin-react`는 5.x를 쓴다. 함부로 올리지 말 것.
 - Electron 44는 `npm install` 때가 아니라 처음 실행할 때 실행 파일을 내려받는다 (`node_modules/electron/dist`).
@@ -154,6 +155,7 @@ tests/
 - 팝업 버튼은 팝업의 **모든 항목에 한 번에** 적용된다 (사용자 결정). 알람은 **지금 복용일 항목만** 띄우고, 지난 복용일의 미응답은 `missed`로 기록하지 않는다 — 7단계 통계에서 '기록 없음 = 놓침'으로 계산 (사용자 결정).
 - `src/main/notifier.ts`는 표시만 한다: `presentAlarm(state, ring)` — `ring`이 false면 내용만 갱신, 객체면 토스트 + 맨 앞으로 + (소리 설정 시) 알림음. 팝업 화면은 `alarm.onState`/`onRing`을 먼저 구독한 뒤 `alarm.ready()`를 불러야 창이 뜨기 전에 울린 소리를 받는다.
 - 테스트 알람은 `key: 'test'`인 가짜 항목으로 같은 경로를 탄다.
+- **등록 전에 이미 지난 시각은 울리지 않는다**: `schedule_items.created_at`(DayPlanEntry `addedAt`)보다 이른 예정 시각은 `dueEntries`에서 빠진다 (오늘 탭에는 '대기'로 남아 직접 체크 가능). 영양제·처방약 수정 시 `replaceSchedule`이 원래 있던 슬롯의 `created_at`을 유지한다.
 
 ### 6-5. 병원 처방약
 - 영양제와 분리된 "처방약" 탭에서 관리.
@@ -165,20 +167,21 @@ tests/
 
 ## 7. 데이터 모델
 
-> `schedule_items` 이하가 3-1단계에서 실제로 만든 형태다. `prescriptions`는 4단계 예정 초안.
+> 아래는 실제로 만든 형태다 (마이그레이션 1~3).
 
 - `products` — id, type(`supplement`|`prescription`), name, manufacturer, label_instruction, source, image_path, active, created_at
 - `ingredients` — id, product_id, name, amount, unit
-- `schedule_items` — id, product_id, slot, custom_time(nullable), dose, sort_order. `UNIQUE(product_id, slot)`. 영양제 수정 시 통째로 지우고 다시 넣는다.
-- `prescriptions` — product_id, timing_rule(예: `after_meal:30`), times_per_day, start_date, days
+- `schedule_items` — id, product_id, slot, custom_time(nullable), dose, sort_order, created_at. `UNIQUE(product_id, slot)`. 영양제·처방약이 함께 쓴다 (`src/main/db/scheduleItems.ts`).
+- `prescriptions` — product_id(PK), meal_timing(`before`|`after`), meal_offset_minutes, start_date, days(NULL=계속 복용), memo. 초안의 `timing_rule`·`times_per_day` 대신 칸을 나눴고, **하루 횟수는 schedule_items 개수**로 계산한다(중복 저장 안 함). 약 자체는 `products.type='prescription'`.
 - `intake_logs` — id, **product_id, slot, plan_date**, scheduled_at, action(`taken`|`snoozed`|`skipped`|`missed`), acted_at. 초안의 `schedule_item_id` 대신 제품·슬롯·복용일을 직접 저장해, 복용 시점을 바꿔도 과거 기록이 남는다. 기록은 추가만 하고, 한 항목의 상태는 그날 마지막 `taken`/`skipped`로 정한다(되돌리기 = 그 둘을 삭제, `snoozed`는 남김).
 - `settings` — key/value(JSON) 행. 항목을 추가해도 마이그레이션이 필요 없고, 없는 키는 `DEFAULT_SETTINGS`로 채운다. 알람 관련: `alarmSound`, `snoozeMinutes`(10), `repeatIntervalMinutes`(5), `repeatMaxCount`(6).
 
-DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열 **끝에** 새 SQL을 추가한다 (`PRAGMA user_version`으로 적용 여부를 판단). 이미 있는 항목은 고치지 않고, 기존 데이터를 지우지 않는다. 현재 버전 2: 1=`products`, `ingredients` / 2=`settings`, `schedule_items`, `intake_logs`.
+DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열 **끝에** 새 SQL을 추가한다 (`PRAGMA user_version`으로 적용 여부를 판단). 이미 있는 항목은 고치지 않고, 기존 데이터를 지우지 않는다. 현재 버전 3: 1=`products`, `ingredients` / 2=`settings`, `schedule_items`, `intake_logs` / 3=`prescriptions`, `schedule_items.created_at`.
 
 ### 시간 계산 규칙 (`src/shared/schedule.ts`, 순수 함수)
 - 슬롯 시간: 기상 직후 = 기상 시간, 식후 = 식사 시간 + `afterMealMinutes`(기본 15), 취침 전 = 취침 − `beforeBedMinutes`(기본 30). `slotOverrides`가 있으면 그 시간, 영양제별 `custom_time`이 있으면 그 시간이 우선.
 - **복용일(plan_date)**: 날짜는 자정이 아니라 취침과 기상의 한가운데(`dayBoundary`)에 바뀐다. 경계보다 이른 시각의 항목은 다음 날 일시가 된다 (예: 취침 01:00 → '취침 전 00:30'은 전날 복용일). 복용일 관련 계산은 반드시 `planDateFor`/`scheduledAtFor`를 쓴다.
+- 처방약 시간(`prescriptionSlotTime`): 아침·점심·저녁 = 식사 시간 ± N분 (슬롯 직접 지정 `slotOverrides`는 **무시** — 처방 지시 우선), 기상 직후·취침 전 = 슬롯 시간, 먹는 때별 직접 지정이 있으면 그 시간. 처방 기간(`startDate`~`prescriptionEndDate`) 밖이거나 '복용 종료'(`active=0`)면 하루 계획에서 빠진다 → 기간이 끝나면 별도 처리 없이 알람이 멈춘다.
 - 일시는 `@date-fns/tz`의 `TZDate`로 Asia/Seoul 기준 계산하고 `+09:00` ISO 문자열로 저장한다 (PC 시간대 설정과 무관).
 
 입력값 검사는 `src/shared/supplementInput.ts` 같은 공용 순수 함수로 두고, 화면(즉시 오류 표시)과 메인 IPC 핸들러(저장 직전 재검사) 양쪽에서 쓴다. 화면 → 메인으로는 입력 창 값 그대로(`*Draft`, 함량도 문자열)를 보내고 메인에서 파싱한다.

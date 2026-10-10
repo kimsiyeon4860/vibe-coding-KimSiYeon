@@ -59,8 +59,8 @@ export function parseSupplementDraft(raw: unknown): ParseResult<SupplementInput>
   return { ok: true, value: { name, manufacturer, labelInstruction, ingredients, schedule } }
 }
 
-/** 복용 시점 목록 검사. 슬롯 순서로 정렬해 돌려준다 */
-function parseSchedule(raw: unknown, errors: string[]): ScheduleItem[] {
+/** 복용 시점 목록 검사. 슬롯 순서로 정렬해 돌려준다 (처방약 입력 검사도 쓴다) */
+export function parseSchedule(raw: unknown, errors: string[]): ScheduleItem[] {
   const rows = Array.isArray(raw) ? raw : []
   const bySlot = new Map<Slot, ScheduleItem>()
   for (const row of rows) {
@@ -86,12 +86,12 @@ function parseSchedule(raw: unknown, errors: string[]): ScheduleItem[] {
   return SLOTS.filter((s) => bySlot.has(s)).map((s) => bySlot.get(s)!)
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** 문자열·숫자만 받아 앞뒤 공백을 지운다. 그 외는 빈 문자열 */
-function text(value: unknown): string {
+export function text(value: unknown): string {
   if (typeof value === 'string') return value.trim()
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return ''

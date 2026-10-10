@@ -11,6 +11,7 @@ import {
   type Hm,
   type IntakeLog,
   type ParseResult,
+  type ProductKind,
   type Settings,
   type Slot
 } from './types'
@@ -108,10 +109,42 @@ export function isPlanDate(value: unknown): value is string {
 export interface ScheduleSource {
   productId: number
   productName: string
+  kind: ProductKind
   active: boolean
   slot: Slot
   customTime: Hm | null
   dose: string
+  /** 처방약: 식사 시간 기준 분 (식전 −N, 식후 +N). 영양제는 null → 슬롯 시간 */
+  mealOffset: number | null
+  /** 처방약 복용 기간 (복용일 "yyyy-MM-dd"). 영양제·계속 복용은 null */
+  startDate: string | null
+  endDate: string | null
+  /** 이 복용 시점을 등록한 일시 (ISO 8601) */
+  addedAt: string
+}
+
+const MEAL_FIELDS: Partial<Record<Slot, 'breakfastTime' | 'lunchTime' | 'dinnerTime'>> = {
+  breakfast: 'breakfastTime',
+  lunch: 'lunchTime',
+  dinner: 'dinnerTime'
+}
+
+/**
+ * 처방약의 슬롯 시간: 아침·점심·저녁은 '식사 시간 ± N분'(슬롯 직접 지정은 무시 — 처방 지시 우선),
+ * 기상 직후·취침 전은 영양제와 같은 슬롯 시간.
+ */
+export function prescriptionSlotTime(slot: Slot, mealOffset: number, settings: Settings): Hm {
+  const mealField = MEAL_FIELDS[slot]
+  if (!mealField) return computeSlotTimes(settings)[slot]
+  return formatHm(minutesOf(settings[mealField]) + mealOffset)
+}
+
+/** 그 복용일에 먹는 항목인지 (사용 중 + 처방 기간 안) */
+function isOnPlanDate(source: ScheduleSource, planDate: string): boolean {
+  if (!source.active) return false
+  if (source.startDate !== null && planDate < source.startDate) return false
+  if (source.endDate !== null && planDate > source.endDate) return false
+  return true
 }
 
 /**
@@ -135,14 +168,17 @@ export function buildDayPlan(
   }
 
   const entries: DayPlanEntry[] = sources
-    .filter((s) => s.active)
+    .filter((s) => isOnPlanDate(s, planDate))
     .map((s) => {
-      const time = s.customTime ?? slotTimes[s.slot]
+      const time =
+        s.customTime ??
+        (s.mealOffset === null ? slotTimes[s.slot] : prescriptionSlotTime(s.slot, s.mealOffset, settings))
       const final = finalLogs.get(key(s.productId, s.slot))
       const snooze = lastSnoozes.get(key(s.productId, s.slot))
       return {
         productId: s.productId,
         productName: s.productName,
+        kind: s.kind,
         slot: s.slot,
         dose: s.dose,
         time,
@@ -151,7 +187,8 @@ export function buildDayPlan(
         actedAt: final?.actedAt ?? null,
         snoozedUntil: snooze
           ? new Date(Date.parse(snooze.actedAt) + settings.snoozeMinutes * MINUTE_MS).toISOString()
-          : null
+          : null,
+        addedAt: s.addedAt
       }
     })
 
