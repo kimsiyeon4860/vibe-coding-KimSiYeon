@@ -1,0 +1,13 @@
+# 설치 파일 빌드 설정 (실제 사용은 로드맵 7단계)
+appId: com.pillmate.app
+productName: PillMate
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

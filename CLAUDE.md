@@ -9,8 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 0. 현재 저장소 상태 (2026-10-10 기준)
 
-- 아직 Electron 프로젝트는 세팅되지 않았다 (`package.json` 없음, git 저장소 아님). 로드맵 1단계부터 시작한다.
-- 현재 있는 것은 **Python/tkinter 프로토타입**뿐이다:
+- 로드맵 **1단계 완료**: Electron 세팅, 트레이 상주, 테스트 알람(토스트 + 항상 위 팝업 + 소리). 팝업 버튼 응답은 아직 콘솔 로그만 남긴다(`notifier.ts`의 TODO, 3단계에서 기록·스누즈 구현).
+- **Vite는 7에 고정**: electron-vite 5가 Vite 8을 지원하지 않는다. 같은 이유로 `@vitejs/plugin-react`는 5.x를 쓴다. 함부로 올리지 말 것.
+- Electron 44는 `npm install` 때가 아니라 처음 실행할 때 실행 파일을 내려받는다 (`node_modules/electron/dist`).
+- 이와 별도로 저장소에는 **Python/tkinter 프로토타입**이 있다:
   - `supplement_reminder.pyw` — 표준 라이브러리만 쓰는 단일 파일 앱 (실행: 더블클릭 또는 `pythonw supplement_reminder.pyw [--minimized]`)
   - `data.json` — 프로토타입의 실제 사용자 데이터 (영양제 목록·설정·복용 기록). **삭제·덮어쓰기 금지.**
   - `README.md` — 프로토타입 사용 설명
@@ -55,17 +57,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 4. 명령어
 
-> 아직 package.json이 없다. 초기 세팅 후 실제 스크립트에 맞게 갱신할 것.
+```bash
+npm install          # 의존성 설치
+npm run dev          # 개발 모드 실행 (핫 리로드)
+npm run typecheck    # TypeScript 검사 (메인·preload용 tsconfig.node.json, 화면용 tsconfig.web.json)
+npm run lint         # ESLint 검사
+npm run build        # typecheck + out/ 에 빌드
+npm run build:win    # Windows 설치 파일 빌드 (dist/)
+```
+
+Vitest는 3단계(스케줄러)에서 추가 예정. 추가하면 아래 명령을 쓴다:
 
 ```bash
-npm install                          # 의존성 설치
-npm run dev                          # 개발 모드 실행 (핫 리로드)
-npm test                             # Vitest 단위 테스트 전체
-npx vitest run tests/scheduler.test.ts   # 테스트 파일 하나만
-npx vitest run -t "테스트 이름"       # 이름으로 특정 테스트만
-npm run lint                         # ESLint 검사
-npm run build:win                    # Windows 설치 파일 빌드
+npm test                                  # 전체
+npx vitest run tests/scheduler.test.ts    # 파일 하나만
+npx vitest run -t "테스트 이름"            # 이름으로 특정 테스트만
 ```
+
+- 개발 중 앱이 이미 트레이에 떠 있으면 `npm run dev`로 새로 띄운 앱은 단일 인스턴스 잠금 때문에 바로 종료된다. 트레이 메뉴 "종료"로 먼저 끈다.
+- 실행 중인 앱을 자동으로 점검할 때: `npx electron-vite dev --inspect 9229 --remoteDebuggingPort 9333` → 메인 프로세스는 9229, 화면은 9333(`/json/list`)에 CDP로 접속해 `Runtime.evaluate`.
 
 ## 5. 폴더 구조 (목표)
 
@@ -78,9 +88,13 @@ src/
     db/              # SQLite 연결, 스키마, 마이그레이션, 쿼리
     services/        # Claude API, 공공데이터 API 호출
   preload/           # 메인 ↔ 화면 사이의 안전한 통로 (contextBridge)
-  renderer/          # React 화면
-    pages/           # 오늘 복용, 영양제 목록, 처방약, 설정
-    components/
+  shared/types.ts    # 메인·preload·화면 공용 타입. window.api 형태(PillMateApi)도 여기서 정의
+  renderer/          # React 화면 (Vite root)
+    index.html       # 메인 창
+    alarm.html       # 알람 팝업 창 (별도 페이지, electron.vite.config.ts의 input에 등록)
+    src/
+      pages/         # 오늘 복용, 영양제 목록, 처방약, 설정
+      components/
 rules/
   timing-rules.json  # 성분별 복용 시점·함께 먹으면 안 되는 조합
 tests/
@@ -88,7 +102,8 @@ tests/
 ```
 
 - 외부 API 호출과 DB 접근은 **메인 프로세스에서만** 한다. renderer에서 직접 하지 않는다.
-- renderer는 preload에 노출된 함수(`window.api.xxx`)로만 메인과 통신한다.
+- renderer는 preload에 노출된 함수(`window.api.xxx`)로만 메인과 통신한다. 새 기능을 노출할 때는 `PillMateApi` 타입 → `src/preload/index.ts` → `ipcMain` 핸들러 순으로 세 곳을 함께 고친다. IPC 채널 이름은 `영역:동작` 형식(예: `alarm:respond`).
+- 창은 `sandbox: true`, `contextIsolation: true`. preload는 CommonJS로 빌드되므로 `package.json`에 `"type": "module"`을 넣지 않는다.
 - 알람 팝업은 메인 창과 별개의 `BrowserWindow`(`alwaysOnTop`)로 띄운다. 메인 창이 숨겨져 있어도 동작해야 한다.
 
 ## 6. 기능 명세
