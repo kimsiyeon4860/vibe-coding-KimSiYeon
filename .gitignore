@@ -18,3 +18,6 @@ dist/
 Thumbs.db
 *.tsbuildinfo
 dist-web/
+
+# 로컬 전용 (GitHub에 올리지 않음)
+docs/성찰기-소재.md
