@@ -4,6 +4,7 @@ import {
   SLOT_LABELS,
   SLOTS,
   type Prescription,
+  type MealEvent,
   type PrescriptionDraft,
   type ScheduleDraft,
   type Settings,
@@ -226,6 +227,15 @@ export default function PrescriptionForm({ initial, defaultStartDate, onSaved, o
                 )
               })}
             </div>
+            {settings &&
+              draft.schedule
+                .filter((item) => settings.usualMeals[item.slot as MealEvent] === false)
+                .map((item) => (
+                  <p key={item.slot} className="mt-2 rounded bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+                    평소 {WHEN_LABELS[item.slot as Slot]}을 드시지 않는다고 설정되어 있어요. 처방약은 처방대로 알려 드리니, 식사를
+                    거른 날 어떻게 드실지는 약사에게 확인하세요.
+                  </p>
+                ))}
           </fieldset>
 
           <div className="flex flex-wrap gap-4">

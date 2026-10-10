@@ -174,7 +174,9 @@ function EntryRow({ entry, overdue, snoozed, onCheck, onUndo }: EntryRowProps) {
         {entry.status === 'pending' && entry.mealSkip && (
           <span className="ml-2 text-xs text-slate-500">
             {entry.mealSkip === 'dropped'
-              ? '식사를 걸렀고 옮길 다음 식사가 없어 오늘은 알리지 않아요'
+              ? entry.mealSkipByHabit
+                ? '평소 안 먹는 식사이고 옮길 다음 식사가 없어 오늘은 알리지 않아요'
+                : '식사를 걸렀고 옮길 다음 식사가 없어 오늘은 알리지 않아요'
               : mealSkipNote(entry)}
           </span>
         )}

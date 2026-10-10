@@ -7,6 +7,7 @@ import {
   type EnvInfo,
   type EventMode,
   type LifeEvent,
+  type MealEvent,
   type Settings,
   type Slot
 } from '../../../shared/types'
@@ -37,6 +38,7 @@ interface SettingsDraft {
   autoLaunch: boolean
   eventModes: Record<LifeEvent, EventMode>
   eventFallbackMinutes: string
+  usualMeals: Record<MealEvent, boolean>
 }
 
 const TIME_FIELDS = [
@@ -204,6 +206,24 @@ export default function SettingsPage() {
             })}
           </tbody>
         </table>
+
+        <h3 className="mt-6 font-semibold">평소 먹는 식사</h3>
+        <div className="mt-2 flex gap-4 text-sm">
+          {(['breakfast', 'lunch', 'dinner'] as const).map((meal) => (
+            <label key={meal} className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={draft.usualMeals[meal]}
+                onChange={(e) => update({ usualMeals: { ...draft.usualMeals, [meal]: e.target.checked } })}
+              />
+              {EVENT_NAMES[meal].replace(' 식사', '')}
+            </label>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          평소 안 먹는 식사에 놓인 영양제는, 그날 그 식사를 기록하지 않으면 다음 식사 알람으로 옮겨 알려 드려요. 복용 시점 추천도
+          그 식사를 피합니다. 처방약은 처방대로 두고 바꾸지 않습니다.
+        </p>
 
         <h3 className="mt-6 font-semibold">생활 기록 방식</h3>
         <p className="mt-1 text-sm text-slate-500">

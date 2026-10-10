@@ -6,12 +6,14 @@ import { TZDate } from '@date-fns/tz'
 import { addMinutes, format, subDays } from 'date-fns'
 import {
   LIFE_EVENTS,
+  MEAL_EVENTS,
   SLOT_EVENT,
   SLOTS,
   type CheckAction,
   type DayEvents,
   type EventMode,
   type LifeEvent,
+  type MealEvent,
   type MealSkipHandling,
   type DayPlanEntry,
   type Hm,
@@ -41,7 +43,8 @@ export const DEFAULT_SETTINGS: Settings = {
   repeatMaxCount: 6,
   autoLaunch: true,
   eventModes: { wake: 'click', breakfast: 'click', lunch: 'click', dinner: 'click', bed: 'click' },
-  eventFallbackMinutes: 60
+  eventFallbackMinutes: 60,
+  usualMeals: { breakfast: true, lunch: true, dinner: true }
 }
 
 // ---------------------------------------------------------------- 시간 문자열
@@ -178,6 +181,7 @@ type Timing = {
   waitingFor: LifeEvent | null
   mealSkip: MealSkipHandling | null
   carriedTo: Slot | null
+  mealSkipByHabit: boolean
 }
 
 const MEAL_SLOTS_IN_ORDER: readonly Slot[] = ['breakfast', 'lunch', 'dinner']
@@ -207,25 +211,29 @@ function resolveTiming(
     scheduledAt: scheduledAtFor(planDate, plannedTime, settings),
     waitingFor: null,
     mealSkip: null,
-    carriedTo: null
+    carriedTo: null,
+    mealSkipByHabit: false
   }
   if (source.customTime !== null) return planned
   const event = SLOT_EVENT[slot]
   const isMeal = MEAL_FIELDS[slot] !== undefined
   if (isMeal && source.mealOffset !== null && source.mealOffset < 0) return planned
 
+  // 그날 '안 먹어요'를 눌렀거나, 평소 안 먹는 식사인데 기록이 없으면(영양제만) 거른 것으로 본다
+  const notEaten = (s: Slot) =>
+    !events[SLOT_EVENT[s]] && (!!skips[SLOT_EVENT[s]] || !settings.usualMeals[SLOT_EVENT[s] as MealEvent])
   const skippedAt = isMeal && !events[event] ? skips[event] : undefined
-  if (skippedAt) {
-    if (source.kind === 'prescription') {
-      const scheduledAt = toSeoulIso(Date.parse(skippedAt))
-      return { ...planned, time: clockOf(scheduledAt), scheduledAt, mealSkip: 'prescription' }
-    }
-    const next = MEAL_SLOTS_IN_ORDER.slice(MEAL_SLOTS_IN_ORDER.indexOf(slot) + 1).find(
-      (s) => events[SLOT_EVENT[s]] || !skips[SLOT_EVENT[s]]
-    )
-    if (!next) return { ...planned, mealSkip: 'dropped' }
+  if (skippedAt && source.kind === 'prescription') {
+    // 처방약은 옮기지 않고 거른 시각에 바로 알린다 (평소 안 먹는 식사 설정만으로는 건드리지 않는다)
+    const scheduledAt = toSeoulIso(Date.parse(skippedAt))
+    return { ...planned, time: clockOf(scheduledAt), scheduledAt, mealSkip: 'prescription' }
+  }
+  if (isMeal && source.kind === 'supplement' && notEaten(slot)) {
+    const byHabit = !skippedAt
+    const next = MEAL_SLOTS_IN_ORDER.slice(MEAL_SLOTS_IN_ORDER.indexOf(slot) + 1).find((s) => !notEaten(s))
+    if (!next) return { ...planned, mealSkip: 'dropped', mealSkipByHabit: byHabit }
     const carried = resolveTiming(source, next, slotTimes, planDate, settings, events, skips)
-    return { ...carried, mealSkip: 'carried', carriedTo: next }
+    return { ...carried, mealSkip: 'carried', carriedTo: next, mealSkipByHabit: byHabit }
   }
 
   if (settings.eventModes[event] !== 'click') return planned
@@ -266,7 +274,7 @@ export function buildDayPlan(
   const entries: DayPlanEntry[] = sources
     .filter((s) => isOnPlanDate(s, planDate))
     .map((s) => {
-      const { time, scheduledAt, waitingFor, mealSkip, carriedTo } = resolveTiming(
+      const { time, scheduledAt, waitingFor, mealSkip, carriedTo, mealSkipByHabit } = resolveTiming(
         s,
         s.slot,
         slotTimes,
@@ -288,6 +296,7 @@ export function buildDayPlan(
         waitingFor,
         mealSkip,
         carriedTo,
+        mealSkipByHabit,
         status: final ? (final.action as CheckAction) : 'pending',
         actedAt: final?.actedAt ?? null,
         snoozedUntil: snooze
@@ -346,6 +355,12 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
   if (!LIFE_EVENTS.every((e) => rawModes[e] === 'fixed' || rawModes[e] === 'click')) {
     errors.push('생활 기록 방식 설정이 올바르지 않습니다')
   }
+  const rawMeals = (typeof input.usualMeals === 'object' && input.usualMeals !== null ? input.usualMeals : {}) as Record<
+    string,
+    unknown
+  >
+  if (!MEAL_EVENTS.every((m) => typeof rawMeals[m] === 'boolean')) errors.push('평소 먹는 식사 설정이 올바르지 않습니다')
+  const usualMeals = Object.fromEntries(MEAL_EVENTS.map((m) => [m, rawMeals[m] !== false])) as Record<MealEvent, boolean>
 
   // 기상 → 아침 → 점심 → 저녁 → 취침 순서인지 (취침은 자정을 넘어도 된다)
   if (errors.length === 0) {
@@ -386,7 +401,8 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
       repeatMaxCount,
       autoLaunch: input.autoLaunch as boolean,
       eventModes,
-      eventFallbackMinutes
+      eventFallbackMinutes,
+      usualMeals
     }
   }
 }

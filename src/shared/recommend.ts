@@ -2,7 +2,16 @@
 // 우선순위: 제품 라벨 > 규칙 파일 > (규칙 없음: 사용자가 직접)
 import { matchIngredients, RULES, type ConflictRule, type IngredientRule, type RulesFile } from './rules'
 import { computeSlotTimes, dayBoundary, parseHm } from './schedule'
-import { SLOTS, type Hm, type ScheduleItem, type Settings, type Slot, type Supplement } from './types'
+import {
+  SLOT_LABELS,
+  SLOTS,
+  type Hm,
+  type MealEvent,
+  type ScheduleItem,
+  type Settings,
+  type Slot,
+  type Supplement
+} from './types'
 
 const MEAL_SLOTS: readonly Slot[] = ['breakfast', 'lunch', 'dinner']
 
@@ -155,7 +164,7 @@ interface Draft {
  * - 규칙이 없으면 현재 일정을 그대로 두고 직접 정하게 한다 (basis 'none')
  */
 export function recommend(supplements: Supplement[], settings: Settings, rules: RulesFile = RULES): Recommendation[] {
-  const drafts = supplements.filter((s) => s.active).map((s) => draftFor(s, rules))
+  const drafts = supplements.filter((s) => s.active).map((s) => draftFor(s, rules, settings))
 
   const placed: { supplement: Supplement; slots: Slot[] }[] = []
   const conflictsWith = (supplement: Supplement, slots: Slot[]) =>
@@ -177,7 +186,29 @@ export function recommend(supplements: Supplement[], settings: Settings, rules: 
   return drafts.map((d) => d.recommendation)
 }
 
-function draftFor(supplement: Supplement, rules: RulesFile): Draft {
+/** 평소 먹는 식사인지 (식사 시점이 아니면 항상 true) */
+function eatsAt(slot: Slot, settings: Settings): boolean {
+  return !MEAL_SLOTS.includes(slot) || settings.usualMeals[slot as MealEvent]
+}
+
+const mealName = (slot: Slot) => SLOT_LABELS[slot].replace(/ 식후$/, '')
+
+/**
+ * 평소 안 먹는 식사 시점을 후보에서 뺀다. 다 빠지면 평소 먹는 식사 시점으로, 그것도 없으면 원래대로.
+ * 첫 후보가 바뀌었으면 이유 한 줄을 돌려준다.
+ */
+function preferUsualMeals(candidates: Slot[], settings: Settings): { candidates: Slot[]; reason: string | null } {
+  let usable = candidates.filter((s) => eatsAt(s, settings))
+  if (usable.length === 0) usable = MEAL_SLOTS.filter((s) => eatsAt(s, settings))
+  if (usable.length === 0) return { candidates, reason: null }
+  const reason =
+    usable[0] !== candidates[0] && !eatsAt(candidates[0], settings)
+      ? `평소 ${mealName(candidates[0])}을 드시지 않아 ${SLOT_LABELS[usable[0]]}로 추천했어요`
+      : null
+  return { candidates: usable, reason }
+}
+
+function draftFor(supplement: Supplement, rules: RulesFile, settings: Settings): Draft {
   const matched = rulesOf(supplement, rules)
   const label = parseLabelInstruction(supplement.labelInstruction)
   const conflictIds = new Set(rules.conflicts.flatMap((c) => [c.a, c.b]))
@@ -201,7 +232,15 @@ function draftFor(supplement: Supplement, rules: RulesFile): Draft {
         ...base,
         slots: label.slots,
         basis: 'label',
-        reasons: [`라벨: ${supplement.labelInstruction}`],
+        reasons: [
+          `라벨: ${supplement.labelInstruction}`,
+          ...label.slots
+            .filter((s) => !eatsAt(s, settings))
+            .map(
+              (s) =>
+                `평소 ${mealName(s)}을 드시지 않아요. 기록하지 않은 날은 다음 식사 알람으로 옮겨 알려 드려요`
+            )
+        ],
         evidenceLimited: false
       }
     }
@@ -209,11 +248,12 @@ function draftFor(supplement: Supplement, rules: RulesFile): Draft {
 
   // 2) 규칙 (라벨이 '식후'라고만 했으면 식사 시점으로 좁힘)
   if (matched.length > 0) {
-    let candidates = rankSlots(matched)
+    let ranked = rankSlots(matched)
     if (label.mealOnly) {
-      const meals = candidates.filter((s) => MEAL_SLOTS.includes(s))
-      candidates = meals.length > 0 ? meals : [...MEAL_SLOTS]
+      const meals = ranked.filter((s) => MEAL_SLOTS.includes(s))
+      ranked = meals.length > 0 ? meals : [...MEAL_SLOTS]
     }
+    const { candidates, reason } = preferUsualMeals(ranked, settings)
     return {
       supplement,
       priority,
@@ -222,20 +262,25 @@ function draftFor(supplement: Supplement, rules: RulesFile): Draft {
         ...base,
         slots: [candidates[0]],
         basis: 'rule',
-        reasons: label.mealOnly ? [`라벨: ${supplement.labelInstruction}`, ...ruleReasons] : ruleReasons
+        reasons: [
+          ...(label.mealOnly ? [`라벨: ${supplement.labelInstruction}`] : []),
+          ...ruleReasons,
+          ...(reason ? [reason] : [])
+        ]
       }
     }
   }
 
-  // 라벨이 '식후'만 말하고 규칙은 없음 → 아침 식후
+  // 라벨이 '식후'만 말하고 규칙은 없음 → 평소 먹는 첫 식사 (기본 아침) 식후
   if (label.mealOnly) {
+    const { candidates } = preferUsualMeals([...MEAL_SLOTS], settings)
     return {
       supplement,
       priority,
-      candidates: [...MEAL_SLOTS],
+      candidates,
       recommendation: {
         ...base,
-        slots: ['breakfast'],
+        slots: [candidates[0]],
         basis: 'label',
         reasons: [`라벨: ${supplement.labelInstruction}`],
         evidenceLimited: false

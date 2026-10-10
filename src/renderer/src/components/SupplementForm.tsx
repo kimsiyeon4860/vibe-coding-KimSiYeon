@@ -6,6 +6,7 @@ import {
   SLOT_LABELS,
   SLOTS,
   type IngredientDraft,
+  type MealEvent,
   type ScheduleDraft,
   type Slot,
   type Supplement,
@@ -57,9 +58,13 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
   }
   const [saving, setSaving] = useState(false)
   const [slotTimes, setSlotTimes] = useState<Record<Slot, string> | null>(null)
+  const [usualMeals, setUsualMeals] = useState<Record<MealEvent, boolean> | null>(null)
 
   useEffect(() => {
-    void window.api.settings.get().then((settings) => setSlotTimes(computeSlotTimes(settings)))
+    void window.api.settings.get().then((settings) => {
+      setSlotTimes(computeSlotTimes(settings))
+      setUsualMeals(settings.usualMeals)
+    })
   }, [])
 
   const setField = (field: 'name' | 'manufacturer' | 'labelInstruction', value: string) =>
@@ -288,6 +293,15 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
                 )
               })}
             </div>
+            {usualMeals &&
+              draft.schedule
+                .filter((item) => usualMeals[item.slot as MealEvent] === false)
+                .map((item) => (
+                  <p key={item.slot} className="mt-2 rounded bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+                    평소 {SLOT_LABELS[item.slot as Slot].replace(' 식후', '')}을 드시지 않는다고 설정되어 있어요. 그 식사를
+                    기록하지 않은 날은 다음 식사 알람으로 옮겨 알려 드려요.
+                  </p>
+                ))}
           </fieldset>
 
           {errors.length > 0 && (

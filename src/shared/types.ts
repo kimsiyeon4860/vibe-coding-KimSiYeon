@@ -137,6 +137,8 @@ export interface Settings {
   eventModes: Record<LifeEvent, EventMode>
   /** 클릭 기록 모드에서 기록이 없으면 평소 시간 + N분에 그냥 알린다 */
   eventFallbackMinutes: number
+  /** 평소 먹는 식사. false인 식사는 기록이 없으면 거른 것으로 보고 영양제를 다음 식사로 옮긴다 */
+  usualMeals: Record<MealEvent, boolean>
 }
 
 /** 설정 탭의 '검색 API 키' 상태 */
@@ -314,6 +316,8 @@ export interface DayPlanEntry {
   mealSkip: MealSkipHandling | null
   /** mealSkip이 carried일 때 옮겨 간 슬롯 */
   carriedTo: Slot | null
+  /** 거른 이유가 '평소 안 먹는 식사' 설정인지 (그날 '안 먹어요'를 누른 것이 아니라) */
+  mealSkipByHabit: boolean
   productId: number
   productName: string
   kind: ProductKind

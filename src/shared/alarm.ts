@@ -54,13 +54,17 @@ export function toAlarmItem(planDate: string, entry: DayPlanEntry): AlarmItem {
 }
 
 /** 거른 식사 때문에 바뀐 알람에 붙일 안내 */
-export function mealSkipNote(entry: Pick<DayPlanEntry, 'slot' | 'mealSkip' | 'carriedTo'>): string | null {
+export function mealSkipNote(
+  entry: Pick<DayPlanEntry, 'slot' | 'mealSkip' | 'carriedTo' | 'mealSkipByHabit'>
+): string | null {
   const meal = SLOT_LABELS[entry.slot].replace(/ 식후$/, '')
   if (entry.mealSkip === 'prescription') {
     return `${meal}을 걸렀어요. 식사를 거른 날 이 약을 어떻게 드실지는 처방 약사의 지시를 따르세요.`
   }
   if (entry.mealSkip === 'carried' && entry.carriedTo) {
-    return `${meal}을 걸러 ${SLOT_LABELS[entry.carriedTo]}에 함께 알려 드려요.`
+    return entry.mealSkipByHabit
+      ? `평소 ${meal}을 드시지 않아 ${SLOT_LABELS[entry.carriedTo]}에 함께 알려 드려요.`
+      : `${meal}을 걸러 ${SLOT_LABELS[entry.carriedTo]}에 함께 알려 드려요.`
   }
   return null
 }
