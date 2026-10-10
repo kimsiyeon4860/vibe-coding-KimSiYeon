@@ -4,7 +4,8 @@ PC 앞에서 영양제·처방약 복용 시간을 놓치지 않게 해 주는 *
 설치 없이 브라우저에서 열고, **탭을 열어 두면** 복용 시간에 화면 위 알람·브라우저 알림·소리로 알려 줍니다.
 데이터는 서버 없이 **내 브라우저에만** 저장됩니다.
 
-- **데모:** https://아이디.github.io/vibe-coding-이름/ ← GitHub Pages 주소로 바꿀 것
+- **데모:** https://kimsiyeon4860.github.io/vibe-coding-KimSiYeon/
+- **저장소:** https://github.com/kimsiyeon4860/vibe-coding-KimSiYeon
 - 권장 브라우저: 최신 Chrome / Edge (PC)
 
 > 복용 순서 추천은 참고용 정보이며 의사·약사의 지시가 우선합니다.

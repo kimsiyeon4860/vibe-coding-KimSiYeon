@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## ★ 과제 조건 (절대 조건 — 모든 계획은 먼저 이것과 대조할 것)
 
 - **결과물은 브라우저에서 실행되는 정적 웹 애플리케이션 1개**, **GitHub Pages**로 제출한다 (서버 없음).
-- 저장소 이름 `vibe-coding-이름`, 마감 **10/12 자정** (e-class에 데모 링크·성찰기 발표 자료 업로드). 10/13부터 발표(7분 + 질의 3~5분).
+- 저장소 https://github.com/kimsiyeon4860/vibe-coding-KimSiYeon (GitHub은 저장소 이름에 한글 불가 → 영문), 데모 https://kimsiyeon4860.github.io/vibe-coding-KimSiYeon/ , 마감 **10/12 자정** (e-class에 데모 링크·성찰기 발표 자료 업로드). 10/13부터 발표(7분 + 질의 3~5분).
 - 이 조건을 처음에 놓쳐 Windows 데스크톱(Electron) 앱으로 만들었다가, 핵심 로직을 `src/core`·`src/shared`로 분리해 둔 덕에 **웹판(`src/web`)으로 옮겼다**. 데스크톱판은 부록으로 남아 있다. → 새 기능은 **웹판에서 동작하는지 먼저** 확인한다.
 - 웹판 구조: sql.js(브라우저용 SQLite) + IndexedDB 저장, `window.api`를 `src/web/platform.ts`가 브라우저 안에서 구현(같은 `core/api`·`alarmEngine`·`promptEngine` 사용), 알람·확인 창은 페이지 안 오버레이(`src/web/WebRoot.tsx`)로 같은 React 컴포넌트를 띄운다. 검색 API는 두 기관 모두 CORS를 허용해 브라우저에서 직접 부른다(키는 설정 화면 → localStorage, 식품안전나라 기본 `sample`).
 - 웹판 한계: 탭이 열려 있어야 알람, 데이터는 그 브라우저에만(설정의 백업), 같은 브라우저에서 탭 하나(Web Locks).
