@@ -16,7 +16,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 로드맵 **5단계 완료**: 규칙 파일 기반 복용 시점 추천 보드(영양제 탭 → '복용 시점 추천 받기'), 끌어다 놓기·'옮기기' 선택, 충돌 경고(막지 않음), 일괄 적용. 추천은 영양제에만 적용하고 처방약은 건드리지 않는다. 규칙에 없는 성분은 '규칙 없음' 배지로 사용자가 직접 정한다.
 - 로드맵 **6단계 완료**: 식품안전나라 건강기능식품 검색으로 영양제 입력 채우기.
 - 로드맵 7단계는 둘로 나눴다. **7-1 완료**: '기록' 탭 (최근 7일/30일 복용률, 날짜별 쌓은 막대, 연속 완료일, 제품별 복용률). **7-2 완료**: 설치 파일(`npm run build:win` → `dist\PillMate-Setup-1.0.0.exe`), 앱 아이콘, 자동 실행 켜기/끄기, 설정 탭의 검색 키 상태·키 폴더 열기. **로드맵 1~7단계 모두 완료 (v1.0.0).**
-- **외부 API 방침 (사용자 결정, 2026-10-10): 공개 API(공공데이터)만 쓰고, 공개 API가 없는 기능은 만들지 않는다.** 그래서 Claude API(사진 인식·웹 검색 보완·AI 추정)는 쓰지 않는다. e약은요(의약품)는 공개 API지만 일반의약품 위주라 처방약에 거의 쓸모가 없어 넣지 않았다.
+- v1.1.0: 영양제 검색에 **일반의약품**(약국 비타민제 등, 공공데이터포털 허가정보) 추가. e약은요는 쓰지 않음, 전문의약품·허가 취하 제품은 제외, 성분량은 원료 분량 그대로 + 안내 (사용자 결정).
+- **외부 API 방침 (사용자 결정, 2026-10-10): 공개 API(공공데이터)만 쓰고, 공개 API가 없는 기능은 만들지 않는다.** 그래서 Claude API(사진 인식·웹 검색 보완·AI 추정)는 쓰지 않는다. 일반 식품(음료·젤리, 식품안전나라 C002)은 이름·원재료밖에 없어 넣지 않았다.
 - 영양제 삭제는 하드 삭제이며 복용 기록도 CASCADE로 함께 지워진다 (사용자 결정). 확인 창에서 기록을 남기려면 '사용 중지'를 쓰라고 안내한다.
 - **Vite는 7에 고정**: electron-vite 5가 Vite 8을 지원하지 않는다. 같은 이유로 `@vitejs/plugin-react`는 5.x를 쓴다. 함부로 올리지 말 것.
 - Electron 44는 `npm install` 때가 아니라 처음 실행할 때 실행 파일을 내려받는다 (`node_modules/electron/dist`).
@@ -55,13 +56,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | UI | React + TypeScript + Tailwind CSS | 바이브 코딩에 예제가 가장 많음 |
 | 로컬 DB | SQLite (Node 내장 `node:sqlite`) | 1인용, 서버 불필요. 네이티브 모듈 재빌드가 필요 없다 |
 | 스케줄러 | 메인 프로세스에서 30초 간격 체크 | 절전 복귀 후에도 누락 없이 처리하기 쉬움 |
-| 제품 정보 검색 | 식품안전나라 오픈API `I0030` (건강기능식품 품목제조 신고사항) | 국내 제품의 공식 정보. 공개 API만 쓴다 |
+| 제품 정보 검색 | 식품안전나라 오픈API `I0030` (건강기능식품) + 공공데이터포털 `DrugPrdtPrmsnInfoService08` (의약품 제품 허가정보, 일반의약품) | 국내 제품의 공식 정보. 공개 API만 쓴다 |
 | 테스트 | Vitest | 복용 순서 규칙·스케줄 계산 단위 테스트 |
 | 패키징 | electron-builder | Windows 설치 파일(.exe) 생성. NSIS, 내 계정에만 설치(관리자 권한 불필요), 코드 서명 없음(SmartScreen 경고) |
 
 - 설치 파일에 들어가는 런타임 패키지는 `dependencies`(date-fns, @date-fns/tz)뿐이다. React 등 화면 라이브러리는 Vite가 묶으므로 `devDependencies`에 둔다 — 메인 프로세스에서 새 패키지를 import하면 `dependencies`에 넣어야 설치 앱에서 동작한다.
 - `npm audit`의 moderate 경고(sprintf-js 등)는 **electron-builder 빌드 도구 안에만** 있고 설치 앱에는 없다(`npm audit --omit=dev` = 0건). `npm audit fix --force`는 빌드 도구를 크게 바꿔 깨질 수 있어 쓰지 않기로 함 (7-2단계 결정).
-- 환경변수는 `.env`(git 제외)에만: `FOODSAFETY_API_KEY` (`.env.example` 참고). 개발은 프로젝트 폴더의 `.env`, 설치한 앱은 `%APPDATA%\PillMate\.env`를 `process.loadEnvFile`로 읽는다 (`src/main/env.ts`). 키가 없으면 검색 없이 직접 입력만 된다. 견본 키 `sample`은 결과 최대 5건으로 개발 확인용.
+- 환경변수는 `.env`(git 제외)에만: `FOODSAFETY_API_KEY`(식품안전나라), `DATA_GO_KR_API_KEY`(공공데이터포털 '일반 인증키' — 계정당 하나로 활용신청한 모든 API에 쓰임) (`.env.example` 참고). 형식은 `이름=값` 한 줄씩 — 사용자가 키만 따로 붙여 넣은 적이 있으니 키가 안 읽히면 형식부터 확인 (값은 출력하지 말 것). 개발은 프로젝트 폴더의 `.env`, 설치한 앱은 `%APPDATA%\PillMate\.env`를 `process.loadEnvFile`로 읽는다 (`src/main/env.ts`). 키가 없으면 검색 없이 직접 입력만 된다. 견본 키 `sample`은 결과 최대 5건으로 개발 확인용.
 - DB는 better-sqlite3 대신 `node:sqlite`(`DatabaseSync`)를 쓴다 (2단계에서 결정). Electron 44 내장 Node 24에 들어 있어 설치·재빌드가 없고, Vitest(일반 Node 24)에서도 같은 코드가 그대로 돈다. `db.transaction()`이 없으므로 `src/main/db/transaction.ts`의 `withTransaction`을 쓴다. 조회 결과는 `as unknown as Row` 로 타입을 붙인다.
 
 ## 4. 명령어
@@ -127,6 +128,12 @@ tests/
 - **검색:** 영양제 입력 창의 '제품 검색'에 제품명(필수)·제조사(선택) → 식품안전나라 `I0030` 조회 → 결과를 고르면 입력 창을 채운다. 결과가 없으면(해외 직구 제품 등) 직접 입력한다. 사진 인식·웹 검색 보완은 하지 않는다 (공개 API 방침).
 - 자동으로 가져온 정보는 저장 전 반드시 사용자 확인 화면을 거친다. 출처(`manual` / `public_data`)를 `products.source`에 저장하고 목록에 '공공데이터' 표시.
 - 수동 입력도 항상 가능해야 한다 (검색 실패 대비).
+
+#### 6-1-2. 일반의약품 검색 (v1.1.0)
+- 같은 검색 버튼으로 건강기능식품과 일반의약품을 동시에 찾고(`src/main/searchHandlers.ts` → `mergeSearchResults`), 결과에 종류 배지. 한쪽만 실패하면 다른 쪽 결과 + 안내(`notices`).
+- 호출: `src/main/services/drugInfo.ts` → `https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnDtlInq08?serviceKey=…&type=json&item_name=…` (상세정보 하나로 충분: 제품명 `ITEM_NAME`, 회사 `ENTP_NAME`(판매사라 제조사 칸 문제 없음), `ETC_OTC_CODE`, `CANCEL_NAME`, 원료 `MATERIAL_NAME`, 용법용량 `UD_DOC_DATA`(XML)). 키 오류는 HTTP 401. 제조사 필터는 쓰지 않는다.
+- 변환: `src/shared/drugData.ts` — `ETC_OTC_CODE==='일반의약품'` && 허가 '정상'만, 용법용량 XML의 CDATA → 글(`docToText`), `MATERIAL_NAME`의 `성분명/분량/단위`(반복 제거, 밀리그램→mg 등). **분량은 원료 기준**('콜레칼시페롤농축분말 10mg' ≠ 비타민D 10mg) — 입력 창에 안내. 실제 응답은 `tests/fixtures/drug-detail-sample.json`.
+- 의약품식 성분명(피리독살·히드록소코발라민·메코발라민·폴산·유비데카레논·피토나디온 등)은 `rules/timing-rules.json` 별칭으로 인식. 의약품 이름은 한글 표기('비타민디')가 많다.
 
 #### 6-1-1. 검색 구현 (6단계)
 - 호출: `src/main/services/foodSafety.ts` → `https://openapi.foodsafetykorea.go.kr/api/{키}/I0030/json/1/20/PRDLST_NM=…&BSSH_NM=…`. 응답 `RESULT.CODE`: `INFO-000` 정상, `INFO-200` 결과 없음, `INFO-100` 키 오류. 실패해도 예외 대신 안내 문구를 돌려준다(10초 제한).

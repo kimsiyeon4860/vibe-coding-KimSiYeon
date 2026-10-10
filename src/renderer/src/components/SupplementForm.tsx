@@ -135,7 +135,14 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
               <p>
                 <b>공공데이터에서 가져왔습니다. 저장 전에 아래 내용이 실제 제품과 맞는지 확인하고 고쳐 주세요.</b>
               </p>
-              <p>제조사 칸에는 판매 브랜드가 아니라 실제로 만든 업체(위탁 제조사)가 들어갈 수 있습니다.</p>
+              {filledFrom.category === 'otc_drug' ? (
+                <p>
+                  일반의약품의 성분량은 상자의 &lsquo;원료약품 및 그 분량&rsquo;과 같은 <b>원료 분량</b>이라 실제 비타민 함량과 다를 수
+                  있습니다 (예: &lsquo;콜레칼시페롤농축분말 10mg&rsquo;은 비타민D 10mg이 아닙니다).
+                </p>
+              ) : (
+                <p>제조사 칸에는 판매 브랜드가 아니라 실제로 만든 업체(위탁 제조사)가 들어갈 수 있습니다.</p>
+              )}
               {filledFrom.caution && (
                 <details>
                   <summary className="cursor-pointer">섭취 시 주의사항 보기</summary>

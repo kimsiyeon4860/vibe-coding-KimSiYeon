@@ -79,9 +79,12 @@ export interface Settings {
 
 /** 설정 탭의 '검색 API 키' 상태 */
 export interface EnvInfo {
+  /** 식품안전나라 (건강기능식품) */
   hasSearchKey: boolean
   /** 견본 키(sample, 최대 5건)를 쓰는 중 */
   isSampleKey: boolean
+  /** 공공데이터포털 (일반의약품) */
+  hasDrugKey: boolean
   /** 앱이 읽는 .env 파일 경로 */
   envPath: string
   /** 설치한 앱인지 (자동 실행은 설치한 앱에서만) */
@@ -284,7 +287,7 @@ export interface PillMateApi {
     applySchedule: (changes: ScheduleChange[]) => Promise<void>
   }
   search: {
-    /** 식품안전나라 건강기능식품 검색 (제품명 필수, 제조사 선택) */
+    /** 건강기능식품(식품안전나라)·일반의약품(공공데이터포털) 검색 (제품명 필수, 제조사는 건강기능식품에만) */
     supplements: (name: string, manufacturer: string) => Promise<SupplementSearchResult>
   }
   prescriptions: {

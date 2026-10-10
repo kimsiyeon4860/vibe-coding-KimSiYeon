@@ -10,6 +10,7 @@ export function registerAppHandlers(): void {
     return {
       hasSearchKey: key !== '',
       isSampleKey: key === 'sample',
+      hasDrugKey: (process.env.DATA_GO_KR_API_KEY ?? '') !== '',
       envPath: envFilePath(),
       isPackaged: app.isPackaged
     }

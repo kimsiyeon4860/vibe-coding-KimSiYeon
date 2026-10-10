@@ -268,21 +268,26 @@ export default function SettingsPage() {
 
       {envInfo && (
         <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold">제품 검색 (식품안전나라)</h2>
+          <h2 className="text-lg font-semibold">제품 검색 API 키</h2>
           <p className="mt-1 text-sm">
-            API 키:{' '}
+            건강기능식품 (식품안전나라 <code>FOODSAFETY_API_KEY</code>):{' '}
             {!envInfo.hasSearchKey ? (
-              <b className="text-red-700">없음 — 검색 없이 직접 입력만 됩니다</b>
+              <b className="text-red-700">없음</b>
             ) : envInfo.isSampleKey ? (
               <b className="text-amber-700">견본 키 사용 중 (검색 결과 최대 5건)</b>
             ) : (
               <b className="text-green-700">설정됨</b>
             )}
           </p>
+          <p className="mt-1 text-sm">
+            일반의약품 (공공데이터포털 <code>DATA_GO_KR_API_KEY</code>):{' '}
+            {envInfo.hasDrugKey ? <b className="text-green-700">설정됨</b> : <b className="text-red-700">없음</b>}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">키가 없는 쪽은 검색되지 않고, 직접 입력은 언제나 됩니다.</p>
           <p className="mt-1 break-all text-xs text-slate-500">
             키 파일: {envInfo.envPath}
-            <br />이 파일에 <code>FOODSAFETY_API_KEY=발급받은키</code> 한 줄을 넣고 앱을 다시 켜세요. 파일은 메모장이나
-            VS Code로 여세요.
+            <br />이 파일에 <code>이름=발급받은키</code> 형태로 한 줄씩 넣고 앱을 다시 켜세요. 파일은 메모장이나 VS Code로
+            여세요.
           </p>
           <button
             type="button"

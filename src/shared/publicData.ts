@@ -1,4 +1,5 @@
 // 식품안전나라 '건강기능식품 품목제조 신고사항(I0030)' 응답 → 입력 창 값 (순수 함수)
+// 일반의약품(공공데이터포털 허가정보)은 drugData.ts에서 같은 PublicProduct 형태로 바꾼다.
 // 자동으로 가져온 값은 저장 전에 사용자가 반드시 확인·수정한다 (CLAUDE.md 6-1).
 import type { IngredientDraft, SupplementDraft } from './types'
 
@@ -21,9 +22,19 @@ export interface I0030Row {
   IFTKN_ATNT_MATR_CN?: string
 }
 
+/** 검색 결과 종류: 건강기능식품(식품안전나라) / 일반의약품(공공데이터포털) */
+export type ProductCategory = 'health_food' | 'otc_drug'
+
+export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
+  health_food: '건강기능식품',
+  otc_drug: '일반의약품'
+}
+
 /** 검색 결과 한 건 */
 export interface PublicProduct {
+  /** 결과 구분용 (건강기능식품은 품목제조번호, 의약품은 'drug:품목기준코드') */
   reportNo: string
+  category: ProductCategory
   name: string
   manufacturer: string
   intakeMethod: string
@@ -33,7 +44,15 @@ export interface PublicProduct {
   draft: SupplementDraft
 }
 
-export type SupplementSearchResult = { ok: true; items: PublicProduct[]; total: number } | { ok: false; error: string }
+export type SupplementSearchResult =
+  | {
+      ok: true
+      items: PublicProduct[]
+      total: number
+      /** 한쪽 검색만 실패했을 때 등 결과와 함께 보여줄 안내 */
+      notices?: string[]
+    }
+  | { ok: false; error: string }
 
 export function toPublicProduct(row: I0030Row): PublicProduct {
   const name = clean(row.PRDLST_NM)
@@ -43,6 +62,7 @@ export function toPublicProduct(row: I0030Row): PublicProduct {
   const ingredients = fromStandard.length > 0 ? fromStandard : parseRawMaterials(row.RAWMTRL_NM ?? '')
   return {
     reportNo: clean(row.PRDLST_REPORT_NO),
+    category: 'health_food',
     name,
     manufacturer,
     intakeMethod,
@@ -123,4 +143,27 @@ function normalizeUnit(unit: string): string {
 
 function clean(value: string | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 건강기능식품·일반의약품 검색 결과를 합친다. 한쪽만 실패하면 다른 쪽 결과에 안내를 붙이고,
+ * 둘 다 실패하면 두 오류를 함께 알린다.
+ */
+export function mergeSearchResults(
+  healthFood: SupplementSearchResult,
+  otcDrug: SupplementSearchResult
+): SupplementSearchResult {
+  if (!healthFood.ok && !otcDrug.ok) {
+    return { ok: false, error: [`건강기능식품: ${healthFood.error}`, `일반의약품: ${otcDrug.error}`].join('\n') }
+  }
+  const notices: string[] = []
+  if (!healthFood.ok) notices.push(`건강기능식품: ${healthFood.error}`)
+  if (!otcDrug.ok) notices.push(`일반의약품: ${otcDrug.error}`)
+  const parts = [healthFood, otcDrug].filter((r) => r.ok)
+  return {
+    ok: true,
+    items: parts.flatMap((r) => r.items),
+    total: parts.reduce((sum, r) => sum + r.total, 0),
+    ...(notices.length > 0 ? { notices } : {})
+  }
 }
