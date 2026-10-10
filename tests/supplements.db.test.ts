@@ -19,6 +19,10 @@ const omega3: SupplementInput = {
   ingredients: [
     { name: 'EPA 및 DHA 함유 유지', amount: 600, unit: 'mg' },
     { name: '비타민 E', amount: null, unit: '' }
+  ],
+  schedule: [
+    { slot: 'breakfast', customTime: null, dose: '1캡슐' },
+    { slot: 'dinner', customTime: '19:30', dose: '' }
   ]
 }
 
@@ -73,16 +77,18 @@ describe('영양제 저장', () => {
     ])
   })
 
-  it('수정하면 성분 목록이 통째로 바뀐다', () => {
+  it('수정하면 성분·복용 시점 목록이 통째로 바뀐다', () => {
     const saved = createSupplement(db, omega3)
     const updated = updateSupplement(db, saved.id, {
       ...omega3,
       name: '알티지 오메가3',
-      ingredients: [{ name: 'EPA', amount: 300, unit: 'mg' }]
+      ingredients: [{ name: 'EPA', amount: 300, unit: 'mg' }],
+      schedule: [{ slot: 'lunch', customTime: null, dose: '2캡슐' }]
     })
 
     expect(updated?.name).toBe('알티지 오메가3')
     expect(updated?.ingredients).toEqual([{ name: 'EPA', amount: 300, unit: 'mg' }])
+    expect(updated?.schedule).toEqual([{ slot: 'lunch', customTime: null, dose: '2캡슐' }])
     expect(updated?.createdAt).toBe(saved.createdAt)
   })
 

@@ -10,7 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 0. 현재 저장소 상태 (2026-10-10 기준)
 
 - 로드맵 **1단계 완료**: Electron 세팅, 트레이 상주, 테스트 알람(토스트 + 항상 위 팝업 + 소리). 팝업 버튼 응답은 아직 콘솔 로그만 남긴다(`notifier.ts`의 TODO, 3단계에서 기록·스누즈 구현).
-- 로드맵 **2단계 완료**: 영양제 수동 입력(추가·수정·사용 중지·삭제) + SQLite 저장. 삭제는 현재 하드 삭제 — 3단계에서 `intake_logs`가 생기면 기록 보존을 위해 사용 중지 위주로 바꿀지 재검토.
+- 로드맵 **2단계 완료**: 영양제 수동 입력(추가·수정·사용 중지·삭제) + SQLite 저장.
+- 로드맵 3단계는 둘로 나눴다. **3-1 완료**: 생활 시간 설정 → 슬롯 시간 계산, 영양제별 복용 시점, '오늘 복용' 탭에서 직접 체크·되돌리기. **다음은 3-2**: 30초 간격 스케줄러로 자동 알람, 스누즈·재알림, 절전 복귀 시 놓친 알람 (`src/main/today.ts`의 `getDayPlan`/`recordCheck`를 그대로 쓴다).
+- 영양제 삭제는 하드 삭제이며 복용 기록도 CASCADE로 함께 지워진다 (사용자 결정). 확인 창에서 기록을 남기려면 '사용 중지'를 쓰라고 안내한다.
 - **Vite는 7에 고정**: electron-vite 5가 Vite 8을 지원하지 않는다. 같은 이유로 `@vitejs/plugin-react`는 5.x를 쓴다. 함부로 올리지 말 것.
 - Electron 44는 `npm install` 때가 아니라 처음 실행할 때 실행 파일을 내려받는다 (`node_modules/electron/dist`).
 - 이와 별도로 저장소에는 **Python/tkinter 프로토타입**이 있다:
@@ -152,16 +154,23 @@ tests/
 - 약봉투·처방전 사진 업로드로 입력을 돕는 기능은 후순위.
 - 처방약과 영양제를 함께 복용 중이면 "약사에게 함께 먹어도 되는지 확인하세요" 안내를 표시한다. 상호작용을 앱이 단정하지 않는다.
 
-## 7. 데이터 모델 (초안)
+## 7. 데이터 모델
+
+> `schedule_items` 이하가 3-1단계에서 실제로 만든 형태다. `prescriptions`는 4단계 예정 초안.
 
 - `products` — id, type(`supplement`|`prescription`), name, manufacturer, label_instruction, source, image_path, active, created_at
 - `ingredients` — id, product_id, name, amount, unit
-- `schedule_items` — id, product_id, slot, custom_time(nullable), dose, sort_order
+- `schedule_items` — id, product_id, slot, custom_time(nullable), dose, sort_order. `UNIQUE(product_id, slot)`. 영양제 수정 시 통째로 지우고 다시 넣는다.
 - `prescriptions` — product_id, timing_rule(예: `after_meal:30`), times_per_day, start_date, days
-- `intake_logs` — id, schedule_item_id, scheduled_at, action(`taken`|`snoozed`|`skipped`|`missed`), acted_at
-- `settings` — 기상·식사·취침 시간, 알람 소리, 재알림 간격·횟수
+- `intake_logs` — id, **product_id, slot, plan_date**, scheduled_at, action(`taken`|`snoozed`|`skipped`|`missed`), acted_at. 초안의 `schedule_item_id` 대신 제품·슬롯·복용일을 직접 저장해, 복용 시점을 바꿔도 과거 기록이 남는다. 기록은 추가만 하고, 한 항목의 상태는 그날 마지막 `taken`/`skipped`로 정한다(되돌리기 = 그 둘을 삭제, `snoozed`는 남김).
+- `settings` — key/value(JSON) 행. 항목을 추가해도 마이그레이션이 필요 없고, 없는 키는 `DEFAULT_SETTINGS`로 채운다. 3-2단계에서 알람 소리·재알림 간격·횟수를 추가할 예정.
 
-DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열 **끝에** 새 SQL을 추가한다 (`PRAGMA user_version`으로 적용 여부를 판단). 이미 있는 항목은 고치지 않고, 기존 데이터를 지우지 않는다. 현재 버전 1: `products`, `ingredients`.
+DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열 **끝에** 새 SQL을 추가한다 (`PRAGMA user_version`으로 적용 여부를 판단). 이미 있는 항목은 고치지 않고, 기존 데이터를 지우지 않는다. 현재 버전 2: 1=`products`, `ingredients` / 2=`settings`, `schedule_items`, `intake_logs`.
+
+### 시간 계산 규칙 (`src/shared/schedule.ts`, 순수 함수)
+- 슬롯 시간: 기상 직후 = 기상 시간, 식후 = 식사 시간 + `afterMealMinutes`(기본 15), 취침 전 = 취침 − `beforeBedMinutes`(기본 30). `slotOverrides`가 있으면 그 시간, 영양제별 `custom_time`이 있으면 그 시간이 우선.
+- **복용일(plan_date)**: 날짜는 자정이 아니라 취침과 기상의 한가운데(`dayBoundary`)에 바뀐다. 경계보다 이른 시각의 항목은 다음 날 일시가 된다 (예: 취침 01:00 → '취침 전 00:30'은 전날 복용일). 복용일 관련 계산은 반드시 `planDateFor`/`scheduledAtFor`를 쓴다.
+- 일시는 `@date-fns/tz`의 `TZDate`로 Asia/Seoul 기준 계산하고 `+09:00` ISO 문자열로 저장한다 (PC 시간대 설정과 무관).
 
 입력값 검사는 `src/shared/supplementInput.ts` 같은 공용 순수 함수로 두고, 화면(즉시 오류 표시)과 메인 IPC 핸들러(저장 직전 재검사) 양쪽에서 쓴다. 화면 → 메인으로는 입력 창 값 그대로(`*Draft`, 함량도 문자열)를 보내고 메인에서 파싱한다.
 
@@ -180,7 +189,7 @@ DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열
 ## 9. 코딩 규칙
 
 - TypeScript strict 모드. `any` 사용 지양.
-- 시간 계산은 한국 시간(Asia/Seoul) 기준. 날짜 처리는 date-fns 사용.
+- 시간 계산은 한국 시간(Asia/Seoul) 기준. 날짜 처리는 date-fns + `@date-fns/tz` 사용. 현재 시각은 인자(`now`)로 받아 테스트에서 고정한다.
 - 복용 순서 규칙과 알람 시간 계산 로직은 Electron API에 의존하지 않는 순수 함수로 분리하고 Vitest 테스트를 작성한다 (현재 시각은 인자로 받는다).
 - 주석과 UI 문구는 한국어.
 - 새 패키지를 추가할 때는 이유를 먼저 설명한다.

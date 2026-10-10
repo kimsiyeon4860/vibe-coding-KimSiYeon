@@ -7,6 +7,7 @@ const draft = (overrides: Partial<SupplementDraft> = {}): SupplementDraft => ({
   manufacturer: '',
   labelInstruction: '',
   ingredients: [],
+  schedule: [],
   ...overrides
 })
 
@@ -17,7 +18,7 @@ describe('parseSupplementDraft', () => {
     )
     expect(result).toEqual({
       ok: true,
-      value: { name: '오메가3', manufacturer: '종근당', labelInstruction: '1일 1회', ingredients: [] }
+      value: { name: '오메가3', manufacturer: '종근당', labelInstruction: '1일 1회', ingredients: [], schedule: [] }
     })
   })
 
@@ -81,5 +82,44 @@ describe('parseSupplementDraft', () => {
   it('오류를 한 번에 모두 알려준다', () => {
     const result = parseSupplementDraft(draft({ name: '', ingredients: [{ name: '', amount: 'x', unit: '' }] }))
     expect(result.ok === false && result.errors).toHaveLength(3)
+  })
+
+  describe('복용 시점', () => {
+    it('슬롯 순서로 정렬하고 시간 형식을 맞춘다', () => {
+      const result = parseSupplementDraft(
+        draft({
+          schedule: [
+            { slot: 'bedtime', customTime: '', dose: ' 1정 ' },
+            { slot: 'breakfast', customTime: ' 09:05 ', dose: '' }
+          ]
+        })
+      )
+      expect(result.ok && result.value.schedule).toEqual([
+        { slot: 'breakfast', customTime: '09:05', dose: '' },
+        { slot: 'bedtime', customTime: null, dose: '1정' }
+      ])
+    })
+
+    it('잘못된 시간은 슬롯 이름과 함께 알려준다', () => {
+      const result = parseSupplementDraft(draft({ schedule: [{ slot: 'lunch', customTime: '25:00', dose: '' }] }))
+      expect(result).toEqual({ ok: false, errors: ['점심 식후: 시간을 확인해 주세요'] })
+    })
+
+    it('없는 슬롯은 거부한다', () => {
+      const result = parseSupplementDraft(draft({ schedule: [{ slot: 'brunch', customTime: '', dose: '' }] }))
+      expect(result.ok).toBe(false)
+    })
+
+    it('같은 슬롯이 두 번 오면 하나만 남긴다', () => {
+      const result = parseSupplementDraft(
+        draft({
+          schedule: [
+            { slot: 'wake', customTime: '', dose: 'a' },
+            { slot: 'wake', customTime: '', dose: 'b' }
+          ]
+        })
+      )
+      expect(result.ok && result.value.schedule).toEqual([{ slot: 'wake', customTime: null, dose: 'b' }])
+    })
   })
 })

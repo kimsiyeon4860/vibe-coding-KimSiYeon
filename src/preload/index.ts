@@ -12,6 +12,17 @@ const api: PillMateApi = {
     remove: (id) => ipcRenderer.invoke('supplements:delete', id)
   },
 
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    save: (settings) => ipcRenderer.invoke('settings:save', settings)
+  },
+
+  today: {
+    get: () => ipcRenderer.invoke('today:get'),
+    check: (planDate, productId, slot, action) => ipcRenderer.invoke('today:check', planDate, productId, slot, action),
+    undo: (planDate, productId, slot) => ipcRenderer.invoke('today:undo', planDate, productId, slot)
+  },
+
   testAlarm: () => ipcRenderer.send('alarm:test'),
 
   getAlarmItems: () => ipcRenderer.invoke('alarm:get-items'),

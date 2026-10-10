@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Ingredient, Supplement } from '../../../shared/types'
+import { SLOT_LABELS, type Ingredient, type Supplement } from '../../../shared/types'
 import SupplementForm from '../components/SupplementForm'
 
 /** 입력 창 상태: 닫힘 / 새로 추가 / 수정 */
@@ -23,7 +23,11 @@ export default function SupplementsPage() {
   }
 
   const remove = async (s: Supplement) => {
-    if (!window.confirm(`'${s.name}'을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return
+    const message =
+      `'${s.name}'을(를) 삭제할까요?\n` +
+      '복용 기록도 함께 지워지며 되돌릴 수 없습니다.\n' +
+      "기록을 남기려면 '사용 중지'를 쓰세요."
+    if (!window.confirm(message)) return
     await window.api.supplements.remove(s.id)
     await reload()
   }
@@ -71,6 +75,17 @@ export default function SupplementsPage() {
                   {s.ingredients.length > 0 && (
                     <p className="mt-1 text-sm text-slate-600">{s.ingredients.map(formatIngredient).join(' · ')}</p>
                   )}
+                  <p className="mt-1 text-sm">
+                    {s.schedule.length > 0 ? (
+                      <span className="text-indigo-700">
+                        {s.schedule
+                          .map((item) => SLOT_LABELS[item.slot] + (item.customTime ? ` ${item.customTime}` : ''))
+                          .join(' · ')}
+                      </span>
+                    ) : (
+                      <span className="text-amber-700">복용 시점 미지정 — 수정에서 골라 주세요</span>
+                    )}
+                  </p>
                   {s.labelInstruction && (
                     <p className="mt-1 text-sm text-slate-500">섭취 방법: {s.labelInstruction}</p>
                   )}

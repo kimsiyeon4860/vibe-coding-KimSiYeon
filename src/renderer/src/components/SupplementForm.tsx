@@ -1,6 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { computeSlotTimes } from '../../../shared/schedule'
 import { parseSupplementDraft } from '../../../shared/supplementInput'
-import type { IngredientDraft, Supplement, SupplementDraft } from '../../../shared/types'
+import {
+  SLOT_LABELS,
+  SLOTS,
+  type IngredientDraft,
+  type ScheduleDraft,
+  type Slot,
+  type Supplement,
+  type SupplementDraft
+} from '../../../shared/types'
 
 interface Props {
   /** 수정할 영양제. 없으면 새로 추가 */
@@ -14,7 +23,7 @@ const UNIT_SUGGESTIONS = ['mg', 'μg', 'g', 'IU', 'mL', '억 CFU', '%']
 const emptyIngredient = (): IngredientDraft => ({ name: '', amount: '', unit: '' })
 
 function toDraft(s?: Supplement): SupplementDraft {
-  if (!s) return { name: '', manufacturer: '', labelInstruction: '', ingredients: [emptyIngredient()] }
+  if (!s) return { name: '', manufacturer: '', labelInstruction: '', ingredients: [emptyIngredient()], schedule: [] }
   return {
     name: s.name,
     manufacturer: s.manufacturer,
@@ -22,7 +31,8 @@ function toDraft(s?: Supplement): SupplementDraft {
     ingredients:
       s.ingredients.length > 0
         ? s.ingredients.map((i) => ({ name: i.name, amount: i.amount === null ? '' : String(i.amount), unit: i.unit }))
-        : [emptyIngredient()]
+        : [emptyIngredient()],
+    schedule: s.schedule.map((item) => ({ slot: item.slot, customTime: item.customTime ?? '', dose: item.dose }))
   }
 }
 
@@ -31,6 +41,11 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
   const [draft, setDraft] = useState<SupplementDraft>(() => toDraft(initial))
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [slotTimes, setSlotTimes] = useState<Record<Slot, string> | null>(null)
+
+  useEffect(() => {
+    void window.api.settings.get().then((settings) => setSlotTimes(computeSlotTimes(settings)))
+  }, [])
 
   const setField = (field: 'name' | 'manufacturer' | 'labelInstruction', value: string) =>
     setDraft((d) => ({ ...d, [field]: value }))
@@ -45,6 +60,22 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
 
   const removeIngredient = (index: number) =>
     setDraft((d) => ({ ...d, ingredients: d.ingredients.filter((_, i) => i !== index) }))
+
+  const scheduleOf = (slot: Slot) => draft.schedule.find((item) => item.slot === slot)
+
+  const toggleSlot = (slot: Slot, checked: boolean) =>
+    setDraft((d) => ({
+      ...d,
+      schedule: checked
+        ? [...d.schedule, { slot, customTime: '', dose: '' }]
+        : d.schedule.filter((item) => item.slot !== slot)
+    }))
+
+  const setSchedule = (slot: Slot, field: 'customTime' | 'dose', value: string) =>
+    setDraft((d) => ({
+      ...d,
+      schedule: d.schedule.map((item): ScheduleDraft => (item.slot === slot ? { ...item, [field]: value } : item))
+    }))
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -170,6 +201,54 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
             >
               + 성분 추가
             </button>
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-medium">복용 시점</legend>
+            <p className="text-xs text-slate-500">
+              먹는 때를 모두 고르세요. 알람 시간은 설정의 생활 시간으로 계산되며, 이 영양제만 다른 시간에 먹으려면
+              직접 지정하세요.
+            </p>
+            <div className="mt-2 space-y-1">
+              {SLOTS.map((slot) => {
+                const item = scheduleOf(slot)
+                return (
+                  <div
+                    key={slot}
+                    className={`flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${item ? 'bg-indigo-50' : ''}`}
+                  >
+                    <label className="flex w-44 items-center gap-2">
+                      <input type="checkbox" checked={!!item} onChange={(e) => toggleSlot(slot, e.target.checked)} />
+                      <span className="text-sm">{SLOT_LABELS[slot]}</span>
+                      <span className={`font-mono text-xs ${item?.customTime ? 'text-slate-400 line-through' : 'text-slate-500'}`}>
+                        {slotTimes?.[slot]}
+                      </span>
+                    </label>
+                    {item && (
+                      <>
+                        <input
+                          value={item.dose}
+                          onChange={(e) => setSchedule(slot, 'dose', e.target.value)}
+                          placeholder="복용량 (예: 1캡슐)"
+                          aria-label={`${SLOT_LABELS[slot]} 복용량`}
+                          className={`${inputClass} w-36 py-1 text-sm`}
+                        />
+                        <label className="flex items-center gap-1 text-xs text-slate-500">
+                          시간 직접 지정
+                          <input
+                            type="time"
+                            value={item.customTime}
+                            onChange={(e) => setSchedule(slot, 'customTime', e.target.value)}
+                            aria-label={`${SLOT_LABELS[slot]} 직접 지정 시간`}
+                            className={`${inputClass} w-auto py-1 text-sm`}
+                          />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </fieldset>
 
           {errors.length > 0 && (

@@ -1,10 +1,10 @@
 // 영양제 입력값 검사 (순수 함수). 화면 입력 창과 메인 프로세스 저장 직전에 함께 쓴다.
-import type { Ingredient, SupplementInput } from './types'
+import { formatHm, parseHm } from './schedule'
+import { SLOT_LABELS, SLOTS, type Ingredient, type ParseResult, type ScheduleItem, type Slot, type SupplementInput } from './types'
 
 export const NAME_MAX = 100
 export const INSTRUCTION_MAX = 1000
-
-export type ParseResult<T> = { ok: true; value: T } | { ok: false; errors: string[] }
+export const DOSE_MAX = 50
 
 /**
  * 입력 창 값(SupplementDraft 형태)을 검사해 저장 가능한 값으로 바꾼다.
@@ -53,8 +53,37 @@ export function parseSupplementDraft(raw: unknown): ParseResult<SupplementInput>
     ingredients.push({ name: ingName, amount, unit })
   })
 
+  const schedule = parseSchedule(raw.schedule, errors)
+
   if (errors.length > 0) return { ok: false, errors }
-  return { ok: true, value: { name, manufacturer, labelInstruction, ingredients } }
+  return { ok: true, value: { name, manufacturer, labelInstruction, ingredients, schedule } }
+}
+
+/** 복용 시점 목록 검사. 슬롯 순서로 정렬해 돌려준다 */
+function parseSchedule(raw: unknown, errors: string[]): ScheduleItem[] {
+  const rows = Array.isArray(raw) ? raw : []
+  const bySlot = new Map<Slot, ScheduleItem>()
+  for (const row of rows) {
+    if (!isRecord(row) || !SLOTS.includes(row.slot as Slot)) {
+      errors.push('복용 시점 형식이 올바르지 않습니다')
+      continue
+    }
+    const slot = row.slot as Slot
+    const label = SLOT_LABELS[slot]
+    const dose = text(row.dose)
+    const timeText = text(row.customTime)
+
+    let customTime: string | null = null
+    if (timeText) {
+      const minutes = parseHm(timeText)
+      if (minutes === null) errors.push(`${label}: 시간을 확인해 주세요`)
+      else customTime = formatHm(minutes)
+    }
+    if (dose.length > DOSE_MAX) errors.push(`${label}: 복용량은 ${DOSE_MAX}자 이하로 입력해 주세요`)
+    // 같은 슬롯이 두 번 오면 마지막 값을 쓴다
+    bySlot.set(slot, { slot, customTime, dose })
+  }
+  return SLOTS.filter((s) => bySlot.has(s)).map((s) => bySlot.get(s)!)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

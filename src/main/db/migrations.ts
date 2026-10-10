@@ -30,6 +30,37 @@ export const MIGRATIONS: readonly string[] = [
   );
 
   CREATE INDEX idx_ingredients_product ON ingredients(product_id);
+  `,
+
+  // 2: 설정, 복용 시점, 복용 기록 (로드맵 3-1단계)
+  `
+  CREATE TABLE settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL  -- JSON
+  );
+
+  CREATE TABLE schedule_items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    slot        TEXT    NOT NULL CHECK (slot IN ('wake', 'breakfast', 'lunch', 'dinner', 'bedtime')),
+    custom_time TEXT,             -- "HH:mm", 없으면 슬롯 시간
+    dose        TEXT    NOT NULL DEFAULT '',
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (product_id, slot)
+  );
+
+  -- 일정(schedule_items)을 바꿔도 과거 기록이 남도록 제품·슬롯·예정 시각을 직접 저장한다
+  CREATE TABLE intake_logs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    slot         TEXT    NOT NULL,
+    plan_date    TEXT    NOT NULL,  -- 복용일 "yyyy-MM-dd"
+    scheduled_at TEXT    NOT NULL,  -- ISO 8601 (+09:00)
+    action       TEXT    NOT NULL CHECK (action IN ('taken', 'snoozed', 'skipped', 'missed')),
+    acted_at     TEXT    NOT NULL   -- ISO 8601
+  );
+
+  CREATE INDEX idx_intake_logs_plan_date ON intake_logs(plan_date);
   `
 ]
 

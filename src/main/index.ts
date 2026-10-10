@@ -5,6 +5,7 @@ import type { AlarmItem } from '../shared/types'
 import { openDatabase } from './db/connection'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { registerAlarmHandlers, showAlarm } from './notifier'
+import { registerScheduleHandlers } from './scheduleHandlers'
 import { registerSupplementHandlers } from './supplementHandlers'
 import { createPillIcon } from './trayIcon'
 
@@ -32,6 +33,7 @@ function start(): void {
   // DB 파일 위치: %APPDATA%\PillMate\pillmate.db
   db = openDatabase(join(app.getPath('userData'), 'pillmate.db'))
   registerSupplementHandlers(db)
+  registerScheduleHandlers(db)
   registerAlarmHandlers()
   ipcMain.on('alarm:test', triggerTestAlarm)
 
