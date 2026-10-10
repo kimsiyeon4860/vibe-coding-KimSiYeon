@@ -18,6 +18,8 @@ const entry = (overrides: Partial<DayPlanEntry> = {}): DayPlanEntry => ({
   actedAt: null,
   snoozedUntil: null,
   waitingFor: null,
+  mealSkip: null,
+  carriedTo: null,
   addedAt: '1970-01-01T00:00:00.000Z',
   ...overrides
 })

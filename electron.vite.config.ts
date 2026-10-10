@@ -14,7 +14,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           alarm: resolve(__dirname, 'src/renderer/alarm.html'),
-          wake: resolve(__dirname, 'src/renderer/wake.html')
+          prompt: resolve(__dirname, 'src/renderer/prompt.html')
         }
       }
     }

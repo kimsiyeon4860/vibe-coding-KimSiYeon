@@ -1,14 +1,17 @@
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useCallback, useEffect, useState } from 'react'
+import { mealSkipNote } from '../../../shared/alarm'
 import { clockOf } from '../../../shared/schedule'
 import {
   LIFE_EVENT_LABELS,
+  MEAL_EVENTS,
   SLOT_LABELS,
   type CheckAction,
   type DayPlanEntry,
   type Hm,
   type LifeEvent,
+  type MealEvent,
   type TodayView
 } from '../../../shared/types'
 import LifeEventBar from '../components/LifeEventBar'
@@ -75,6 +78,9 @@ export default function TodayPage() {
   const recordEvent = async (event: LifeEvent, time?: Hm) => {
     setView(await window.api.today.recordEvent(view.planDate, event, time))
   }
+  const skipEvent = async (meal: MealEvent) => {
+    setView(await window.api.today.skipEvent(view.planDate, meal))
+  }
   const clearEvent = async (event: LifeEvent) => {
     setView(await window.api.today.clearEvent(view.planDate, event))
   }
@@ -95,8 +101,10 @@ export default function TodayPage() {
 
       <LifeEventBar
         events={view.events}
+        skips={view.skips}
         clickEvents={view.clickEvents}
         onRecord={(event, time) => void recordEvent(event, time)}
+        onSkip={(meal) => void skipEvent(meal)}
         onClear={(event) => void clearEvent(event)}
       />
 
@@ -163,9 +171,17 @@ function EntryRow({ entry, overdue, snoozed, onCheck, onUndo }: EntryRowProps) {
         </span>
         {entry.kind === 'prescription' && <PrescriptionBadge />}
         {entry.dose && <span className="ml-2 text-sm text-slate-500">{entry.dose}</span>}
+        {entry.status === 'pending' && entry.mealSkip && (
+          <span className="ml-2 text-xs text-slate-500">
+            {entry.mealSkip === 'dropped'
+              ? '식사를 걸렀고 옮길 다음 식사가 없어 오늘은 알리지 않아요'
+              : mealSkipNote(entry)}
+          </span>
+        )}
         {entry.status === 'pending' && entry.waitingFor && !overdue && (
           <span className="ml-2 text-xs text-slate-500">
-            &lsquo;{LIFE_EVENT_LABELS[entry.waitingFor]}&rsquo; 기록하면 알림 · 기록이 없으면 {clockOf(entry.scheduledAt)}에 알림
+            &lsquo;{LIFE_EVENT_LABELS[entry.waitingFor]}&rsquo; 기록하면 알림 · 기록이 없으면 {clockOf(entry.scheduledAt)}에{' '}
+            {MEAL_EVENTS.includes(entry.waitingFor as MealEvent) ? '드셨는지 물어볼게요' : '알림'}
           </span>
         )}
         {snoozed && entry.snoozedUntil ? (

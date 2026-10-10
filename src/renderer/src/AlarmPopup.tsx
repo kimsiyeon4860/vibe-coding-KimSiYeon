@@ -48,6 +48,7 @@ export default function AlarmPopup() {
                 {overdue && <span className="ml-auto text-xs font-medium text-amber-700">{overdue}</span>}
               </div>
               {item.dose && <p className="mt-1 text-sm text-slate-500">{item.dose}</p>}
+              {item.note && <p className="mt-1 text-xs text-amber-800">{item.note}</p>}
             </li>
           )
         })}

@@ -86,6 +86,11 @@ export const MIGRATIONS: readonly string[] = [
     at        TEXT NOT NULL,  -- ISO 8601
     PRIMARY KEY (plan_date, event)
   );
+  `,
+
+  // 5: 식사 거름 (로드맵 8-2단계) — 1이면 그 식사를 거른 것 (at = 거름을 누른 시각)
+  `
+  ALTER TABLE life_events ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0 CHECK (skipped IN (0, 1));
   `
 ]
 

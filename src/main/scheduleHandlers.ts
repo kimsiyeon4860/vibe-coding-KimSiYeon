@@ -4,7 +4,9 @@ import type { DatabaseSync } from 'node:sqlite'
 import { isPlanDate, parseHm, parseSettings } from '../shared/schedule'
 import {
   LIFE_EVENTS,
+  MEAL_EVENTS,
   SLOTS,
+  type MealEvent,
   type CheckAction,
   type LifeEvent,
   type ParseResult,
@@ -13,7 +15,15 @@ import {
 } from '../shared/types'
 import { applyAutoLaunch } from './autoLaunch'
 import { getSettings, saveSettings } from './db/settings'
-import { clearLifeEvent, getStatsView, getTodayView, recordCheck, recordLifeEvent, undoCheck } from './today'
+import {
+  clearLifeEvent,
+  getStatsView,
+  getTodayView,
+  recordCheck,
+  recordLifeEvent,
+  skipMeal,
+  undoCheck
+} from './today'
 
 /** @param onChanged 설정·기록이 바뀌면 호출 (알람 다시 확인용) */
 export function registerScheduleHandlers(db: DatabaseSync, onChanged: () => void): void {
@@ -53,6 +63,14 @@ export function registerScheduleHandlers(db: DatabaseSync, onChanged: () => void
   ipcMain.handle('today:clear-event', (_event, planDate: unknown, lifeEvent: unknown) => {
     if (isPlanDate(planDate) && isLifeEvent(lifeEvent)) {
       clearLifeEvent(db, planDate, lifeEvent)
+      onChanged()
+    }
+    return getTodayView(db)
+  })
+
+  ipcMain.handle('today:skip-event', (_event, planDate: unknown, meal: unknown) => {
+    if (isPlanDate(planDate) && MEAL_EVENTS.includes(meal as MealEvent)) {
+      skipMeal(db, planDate, meal as MealEvent)
       onChanged()
     }
     return getTodayView(db)

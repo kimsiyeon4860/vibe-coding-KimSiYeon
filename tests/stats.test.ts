@@ -21,6 +21,8 @@ const entry = (overrides: Partial<DayPlanEntry> = {}): DayPlanEntry => ({
   actedAt: null,
   snoozedUntil: null,
   waitingFor: null,
+  mealSkip: null,
+  carriedTo: null,
   addedAt: OLD,
   ...overrides
 })

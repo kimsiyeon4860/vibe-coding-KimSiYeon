@@ -15,7 +15,7 @@ import { registerScheduleHandlers } from './scheduleHandlers'
 import { registerSearchHandlers } from './searchHandlers'
 import { startScheduler, type Scheduler } from './scheduler'
 import { getTodayView, recordLifeEvent } from './today'
-import { createWakePrompter, type WakePrompter } from './wakePrompt'
+import { createLifePrompter, type LifePrompter } from './lifePrompt'
 import { registerSupplementHandlers } from './supplementHandlers'
 import { createPillIcon } from './trayIcon'
 
@@ -52,18 +52,18 @@ function start(): void {
   registerAlarmHandlers()
   // 알람 응답·기상 기록으로 오늘 기록이 바뀌면 열려 있는 오늘 탭을 새로고침
   const notifyTodayChanged = () => mainWindow?.webContents.send('today:changed')
-  let wakePrompter: WakePrompter | null = null
-  // 30초마다: 알람 확인 + 기상 기록 묻기 + 트레이 메뉴(생활 기록 표시) 갱신
+  let lifePrompter: LifePrompter | null = null
+  // 30초마다: 알람 확인 + 기상·식사 기록 묻기 + 트레이 메뉴(생활 기록 표시) 갱신
   const activeScheduler = startScheduler(db, notifyTodayChanged, () => {
-    wakePrompter?.check()
+    lifePrompter?.check()
     updateTrayMenu()
   })
   scheduler = activeScheduler
-  wakePrompter = createWakePrompter(db, () => {
+  lifePrompter = createLifePrompter(db, () => {
     activeScheduler.refresh()
     notifyTodayChanged()
   })
-  wakePrompter.check()
+  lifePrompter.check()
   registerSupplementHandlers(db, activeScheduler.refresh)
   registerPrescriptionHandlers(db, activeScheduler.refresh)
   registerSearchHandlers()

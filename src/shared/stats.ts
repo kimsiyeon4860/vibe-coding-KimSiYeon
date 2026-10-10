@@ -74,6 +74,8 @@ export function summarizeDay(
   let upcoming = 0
 
   for (const e of plan) {
+    // 식사를 걸러 오늘은 알리지 않기로 한 것은 세지 않는다
+    if (e.mealSkip === 'dropped' && e.status === 'pending') continue
     const base = { planDate, productId: e.productId, productName: e.productName, kind: e.kind, slot: e.slot }
     if (e.status !== 'pending') {
       entries.push({ ...base, outcome: e.status })

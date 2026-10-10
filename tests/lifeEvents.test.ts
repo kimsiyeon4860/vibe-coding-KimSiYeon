@@ -83,7 +83,10 @@ describe('클릭 기록 모드 (기본)', () => {
   it('알람: 기록 대기 중에는 울리지 않고, 기록하면 그 시각에 맞춰 울린다', () => {
     const waiting = plan([source()])
     expect(dueEntries(waiting, new Date(at('09:00')))).toHaveLength(0)
-    expect(dueEntries(waiting, new Date(at('09:15')))).toHaveLength(1) // 기록이 없으면 평소 + 60분
+    // 식사는 평소 + 60분이 지나도 알람 대신 "드셨어요?"를 묻는다 (8-2)
+    expect(dueEntries(waiting, new Date(at('09:15')))).toHaveLength(0)
+    // 기상·취침은 기록이 없으면 평소 + 60분에 그냥 알린다
+    expect(dueEntries(plan([source({ slot: 'wake' })]), new Date(at('08:00')))).toHaveLength(1)
 
     const recorded = plan([source()], { breakfast: at('08:50') })
     expect(dueEntries(recorded, new Date(at('09:04')))).toHaveLength(0)

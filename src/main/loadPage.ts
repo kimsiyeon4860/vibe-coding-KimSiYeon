@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
 
-export type PageName = 'index' | 'alarm' | 'wake'
+export type PageName = 'index' | 'alarm' | 'prompt'
 
 /**
  * 창에 화면(html)을 띄운다.

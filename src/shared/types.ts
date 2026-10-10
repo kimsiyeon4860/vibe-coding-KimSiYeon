@@ -18,6 +18,8 @@ export interface AlarmItem {
   scheduledAt: string
   /** 설정의 '테스트 알람'으로 띄운 가짜 항목 */
   test?: boolean
+  /** 함께 보여줄 안내 (예: 식사를 걸렀을 때) */
+  note?: string
 }
 
 /** 알람 팝업 화면 상태 */
@@ -81,6 +83,32 @@ export type EventMode = 'fixed' | 'click'
 
 /** 복용일의 생활 기록 (ISO 8601). 기록하지 않은 것은 없음 */
 export type DayEvents = Partial<Record<LifeEvent, string>>
+
+/** 식사 사건 (거를 수 있는 것) */
+export const MEAL_EVENTS = ['breakfast', 'lunch', 'dinner'] as const
+export type MealEvent = (typeof MEAL_EVENTS)[number]
+
+/**
+ * 식사를 걸렀을 때 항목 처리
+ * - carried: 영양제를 다음 식사 알람으로 옮김
+ * - dropped: 옮길 다음 식사가 없어 오늘은 알리지 않음 (통계에서도 뺌)
+ * - prescription: 처방약은 옮기지 않고 바로 알리며 '약사 지시대로' 안내
+ */
+export type MealSkipHandling = 'carried' | 'dropped' | 'prescription'
+
+/** 기상·식사 확인 창 정보 */
+export interface PromptInfo {
+  kind: 'wake' | 'meal'
+  event: LifeEvent
+  planDate: string
+  /** 지금 시각 "HH:mm" */
+  now: Hm
+  /** 알림음을 낼지 (식사 확인은 알람 소리 설정을 따른다) */
+  sound: boolean
+}
+
+/** now = 방금 함, at = 그 시각에 함, skip = 안 먹음(식사만), later = 나중에 */
+export type PromptAnswer = { action: 'now' } | { action: 'at'; time: Hm } | { action: 'skip' } | { action: 'later' }
 
 /** 생활 시간 설정. 슬롯 알람 시간은 여기서 계산된다 */
 export interface Settings {
@@ -282,6 +310,10 @@ export type EntryStatus = 'pending' | CheckAction
 export interface DayPlanEntry {
   /** 클릭 기록을 기다리는 중이면 그 사건 (기록이 없으면 scheduledAt = 평소 시간 + 대기 시간) */
   waitingFor: LifeEvent | null
+  /** 이 항목의 식사를 걸렀을 때 처리 (거르지 않았으면 null) */
+  mealSkip: MealSkipHandling | null
+  /** mealSkip이 carried일 때 옮겨 간 슬롯 */
+  carriedTo: Slot | null
   productId: number
   productName: string
   kind: ProductKind
@@ -309,6 +341,8 @@ export interface TodayView {
   mixesPrescriptionAndSupplement: boolean
   /** 그 복용일의 생활 기록 */
   events: DayEvents
+  /** 그 복용일에 거른 식사 (거름을 누른 시각) */
+  skips: DayEvents
   /** '클릭 기록' 모드인 사건 (오늘 탭에 기록 버튼으로 보여줄 것) */
   clickEvents: LifeEvent[]
 }
@@ -351,14 +385,15 @@ export interface PillMateApi {
     onChanged: (callback: () => void) => () => void
     /** 생활 기록. time("HH:mm")이 없으면 지금 */
     recordEvent: (planDate: string, event: LifeEvent, time?: Hm) => Promise<TodayView>
+    /** 기록·거름 모두 지운다 */
     clearEvent: (planDate: string, event: LifeEvent) => Promise<TodayView>
+    /** 식사를 거름 */
+    skipEvent: (planDate: string, event: MealEvent) => Promise<TodayView>
   }
-  /** 그날 처음 PC를 쓸 때 뜨는 기상 기록 창 */
-  wake: {
-    /** 창이 열릴 때: 묻는 복용일과 지금 시각 */
-    info: () => Promise<{ planDate: string; now: Hm }>
-    /** now = 방금 일어남, at = 그 시각에 일어남, later = 나중에 (오늘은 다시 묻지 않음) */
-    respond: (answer: { action: 'now' } | { action: 'at'; time: Hm } | { action: 'later' }) => void
+  /** 기상 기록 창(그날 처음 PC를 쓸 때) · 식사 확인 창(기록이 없을 때 "드셨어요?") */
+  prompt: {
+    info: () => Promise<PromptInfo>
+    respond: (answer: PromptAnswer) => void
   }
   stats: {
     /** 최근 7일 또는 30일 복용 통계 */

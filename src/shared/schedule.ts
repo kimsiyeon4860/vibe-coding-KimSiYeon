@@ -12,6 +12,7 @@ import {
   type DayEvents,
   type EventMode,
   type LifeEvent,
+  type MealSkipHandling,
   type DayPlanEntry,
   type Hm,
   type IntakeLog,
@@ -171,47 +172,86 @@ function toSeoulIso(ms: number): string {
   return new TZDate(ms, TIME_ZONE).toISOString()
 }
 
+type Timing = {
+  time: Hm
+  scheduledAt: string
+  waitingFor: LifeEvent | null
+  mealSkip: MealSkipHandling | null
+  carriedTo: Slot | null
+}
+
+const MEAL_SLOTS_IN_ORDER: readonly Slot[] = ['breakfast', 'lunch', 'dinner']
+
 /**
  * 항목의 실제 알람 일시. '클릭 기록' 모드의 사건에 묶인 슬롯은:
  * - 기록이 있으면 기록 시각 + (식사면 식후 N분, 처방약이면 처방의 식후 N분, 기상·취침은 바로)
- * - 기록이 없으면 평소 시간 + 대기 시간(eventFallbackMinutes)에 알리고, 그동안 '기록 대기'
+ * - 기록이 없으면 평소 시간 + 대기 시간(eventFallbackMinutes)을 기준으로 '기록 대기'
+ *   (식사는 그때 "드셨어요?"를 묻고 알람은 울리지 않는다 — dueEntries 참고)
+ * 식사를 걸렀으면(skips): 영양제는 다음 식사로 옮기고(없으면 오늘은 알리지 않음), 처방약은 옮기지 않고 바로 알린다.
  * 고정 시간을 유지하는 경우: 영양제별 직접 지정 시간, 처방약 식전 N분(식사 시작을 미리 알 수 없음), '고정 시간' 모드.
  */
 function resolveTiming(
   source: ScheduleSource,
-  plannedTime: Hm,
+  slot: Slot,
+  slotTimes: Record<Slot, Hm>,
   planDate: string,
   settings: Settings,
-  events: DayEvents
-): { time: Hm; scheduledAt: string; waitingFor: LifeEvent | null } {
-  const planned = { time: plannedTime, scheduledAt: scheduledAtFor(planDate, plannedTime, settings), waitingFor: null }
+  events: DayEvents,
+  skips: DayEvents
+): Timing {
+  const plannedTime =
+    source.customTime ??
+    (source.mealOffset === null ? slotTimes[slot] : prescriptionSlotTime(slot, source.mealOffset, settings))
+  const planned: Timing = {
+    time: plannedTime,
+    scheduledAt: scheduledAtFor(planDate, plannedTime, settings),
+    waitingFor: null,
+    mealSkip: null,
+    carriedTo: null
+  }
   if (source.customTime !== null) return planned
-  const event = SLOT_EVENT[source.slot]
-  if (settings.eventModes[event] !== 'click') return planned
-  const isMeal = MEAL_FIELDS[source.slot] !== undefined
+  const event = SLOT_EVENT[slot]
+  const isMeal = MEAL_FIELDS[slot] !== undefined
   if (isMeal && source.mealOffset !== null && source.mealOffset < 0) return planned
 
+  const skippedAt = isMeal && !events[event] ? skips[event] : undefined
+  if (skippedAt) {
+    if (source.kind === 'prescription') {
+      const scheduledAt = toSeoulIso(Date.parse(skippedAt))
+      return { ...planned, time: clockOf(scheduledAt), scheduledAt, mealSkip: 'prescription' }
+    }
+    const next = MEAL_SLOTS_IN_ORDER.slice(MEAL_SLOTS_IN_ORDER.indexOf(slot) + 1).find(
+      (s) => events[SLOT_EVENT[s]] || !skips[SLOT_EVENT[s]]
+    )
+    if (!next) return { ...planned, mealSkip: 'dropped' }
+    const carried = resolveTiming(source, next, slotTimes, planDate, settings, events, skips)
+    return { ...carried, mealSkip: 'carried', carriedTo: next }
+  }
+
+  if (settings.eventModes[event] !== 'click') return planned
   const recorded = events[event]
   if (recorded) {
     const offset = isMeal ? (source.mealOffset ?? settings.afterMealMinutes) : 0
     const scheduledAt = toSeoulIso(Date.parse(recorded) + offset * MINUTE_MS)
-    return { time: clockOf(scheduledAt), scheduledAt, waitingFor: null }
+    return { ...planned, time: clockOf(scheduledAt), scheduledAt }
   }
   const fallback = Date.parse(planned.scheduledAt) + settings.eventFallbackMinutes * MINUTE_MS
-  return { time: plannedTime, scheduledAt: toSeoulIso(fallback), waitingFor: event }
+  return { ...planned, scheduledAt: toSeoulIso(fallback), waitingFor: event }
 }
 
 /**
  * 복용일 하루의 복용 목록을 시간순으로 만들고, 기록을 보고 상태를 붙인다.
  * @param logs 그 복용일의 기록 (오래된 것부터). 같은 항목은 마지막 먹음/건너뜀이 상태가 된다
  * @param events 그 복용일의 생활 기록 ('클릭 기록' 모드에서 알람 시각의 기준)
+ * @param skips 그 복용일에 거른 식사
  */
 export function buildDayPlan(
   planDate: string,
   settings: Settings,
   sources: ScheduleSource[],
   logs: IntakeLog[],
-  events: DayEvents = {}
+  events: DayEvents = {},
+  skips: DayEvents = {}
 ): DayPlanEntry[] {
   const slotTimes = computeSlotTimes(settings)
   const key = (productId: number, slot: Slot) => `${productId}:${slot}`
@@ -226,10 +266,15 @@ export function buildDayPlan(
   const entries: DayPlanEntry[] = sources
     .filter((s) => isOnPlanDate(s, planDate))
     .map((s) => {
-      const plannedTime =
-        s.customTime ??
-        (s.mealOffset === null ? slotTimes[s.slot] : prescriptionSlotTime(s.slot, s.mealOffset, settings))
-      const { time, scheduledAt, waitingFor } = resolveTiming(s, plannedTime, planDate, settings, events)
+      const { time, scheduledAt, waitingFor, mealSkip, carriedTo } = resolveTiming(
+        s,
+        s.slot,
+        slotTimes,
+        planDate,
+        settings,
+        events,
+        skips
+      )
       const final = finalLogs.get(key(s.productId, s.slot))
       const snooze = lastSnoozes.get(key(s.productId, s.slot))
       return {
@@ -241,6 +286,8 @@ export function buildDayPlan(
         time,
         scheduledAt,
         waitingFor,
+        mealSkip,
+        carriedTo,
         status: final ? (final.action as CheckAction) : 'pending',
         actedAt: final?.actedAt ?? null,
         snoozedUntil: snooze

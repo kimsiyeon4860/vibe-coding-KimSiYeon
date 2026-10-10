@@ -3,9 +3,18 @@ import type { DatabaseSync } from 'node:sqlite'
 import { addDays, format, parseISO } from 'date-fns'
 import { buildDayPlan, planDateFor, scheduledAtFor } from '../shared/schedule'
 import { buildStats, summarizeDay, type StatsView } from '../shared/stats'
-import { LIFE_EVENTS, type AlarmAction, type DayPlanEntry, type Hm, type LifeEvent, type Slot, type TodayView } from '../shared/types'
+import {
+  LIFE_EVENTS,
+  type AlarmAction,
+  type DayPlanEntry,
+  type Hm,
+  type LifeEvent,
+  type MealEvent,
+  type Slot,
+  type TodayView
+} from '../shared/types'
 import { addIntakeLog, listFinalOutcomes, listIntakeLogs, undoIntake } from './db/intakeLogs'
-import { deleteDayEvent, listDayEvents, saveDayEvent } from './db/lifeEvents'
+import { deleteDayEvent, listDayEvents, listDaySkips, saveDayEvent, skipDayMeal } from './db/lifeEvents'
 import { getSettings } from './db/settings'
 import { listScheduleSources } from './db/scheduleItems'
 
@@ -16,7 +25,8 @@ export function getDayPlan(db: DatabaseSync, planDate: string): DayPlanEntry[] {
     getSettings(db),
     listScheduleSources(db),
     listIntakeLogs(db, planDate),
-    listDayEvents(db, planDate)
+    listDayEvents(db, planDate),
+    listDaySkips(db, planDate)
   )
 }
 
@@ -31,6 +41,7 @@ export function getTodayView(db: DatabaseSync, now: Date = new Date()): TodayVie
     entries,
     mixesPrescriptionAndSupplement: kinds.has('prescription') && kinds.has('supplement'),
     events: listDayEvents(db, planDate),
+    skips: listDaySkips(db, planDate),
     clickEvents: LIFE_EVENTS.filter((e) => settings.eventModes[e] === 'click')
   }
 }
@@ -85,6 +96,11 @@ export function recordLifeEvent(
 ): void {
   const at = time ? scheduledAtFor(planDate, time, getSettings(db)) : now.toISOString()
   saveDayEvent(db, planDate, event, at)
+}
+
+/** 식사 거름 */
+export function skipMeal(db: DatabaseSync, planDate: string, meal: MealEvent, now: Date = new Date()): void {
+  skipDayMeal(db, planDate, meal, now.toISOString())
 }
 
 export function clearLifeEvent(db: DatabaseSync, planDate: string, event: LifeEvent): void {
