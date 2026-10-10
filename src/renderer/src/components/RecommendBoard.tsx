@@ -100,7 +100,7 @@ export default function RecommendBoard({ supplements, settings, onClose, onAppli
     active.filter((s) => (column === 'none' ? slotsOf(s.id).length === 0 : slotsOf(s.id).includes(column)))
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="flex h-full flex-col p-4 sm:p-6">
       <div className="mb-3 flex items-center justify-between">
         <h1 className="text-xl font-bold">복용 시점 추천</h1>
         <div className="flex gap-2">
@@ -143,7 +143,7 @@ export default function RecommendBoard({ supplements, settings, onClose, onAppli
       {active.length === 0 ? (
         <p className="text-slate-500">사용 중인 영양제가 없습니다.</p>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-6 gap-2 overflow-y-auto">
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:grid-cols-6">
           {COLUMNS.map((column) => (
             <section
               key={column}

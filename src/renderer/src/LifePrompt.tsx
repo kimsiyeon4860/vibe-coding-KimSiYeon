@@ -74,7 +74,11 @@ export default function LifePrompt() {
           onClick={() => respond({ action: 'later' })}
           className="mt-auto text-sm text-slate-400 hover:text-slate-600"
         >
-          {isMeal ? '나중에 (30분 뒤 다시 물어볼게요)' : '나중에 (오늘 복용 탭이나 트레이에서 기록할 수 있어요)'}
+          {isMeal
+            ? '나중에 (30분 뒤 다시 물어볼게요)'
+            : window.api.platform === 'web'
+              ? '나중에 (오늘 복용 탭에서 기록할 수 있어요)'
+              : '나중에 (오늘 복용 탭이나 트레이에서 기록할 수 있어요)'}
         </button>
       </div>
     </div>

@@ -22,7 +22,7 @@ export default function HistoryPage() {
   }, [period])
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">복용 기록</h1>
         <div role="group" aria-label="기간" className="flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm">

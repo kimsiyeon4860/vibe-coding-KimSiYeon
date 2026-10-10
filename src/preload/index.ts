@@ -11,6 +11,8 @@ function subscribe<T extends unknown[]>(channel: string, callback: (...args: T) 
 }
 
 const api: PillMateApi = {
+  platform: 'desktop',
+
   supplements: {
     list: () => ipcRenderer.invoke('supplements:list'),
     create: (draft) => ipcRenderer.invoke('supplements:create', draft),

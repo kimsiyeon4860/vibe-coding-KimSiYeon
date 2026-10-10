@@ -70,10 +70,10 @@ export default function SupplementsPage() {
       : []
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">영양제 목록</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             disabled={!supplements?.some((s) => s.active)}

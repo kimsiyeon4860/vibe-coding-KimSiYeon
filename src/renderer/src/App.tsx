@@ -20,15 +20,17 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-slate-50 text-slate-800">
-      <header className="flex items-center gap-6 border-b border-slate-200 bg-white px-6">
-        <span className="py-3 text-lg font-bold">💊 PillMate</span>
-        <nav className="flex gap-1">
+      <header className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 sm:gap-6 sm:px-6">
+        <span className="shrink-0 py-3 text-lg font-bold">
+          💊<span className="hidden sm:inline"> PillMate</span>
+        </span>
+        <nav className="flex min-w-0 gap-1 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={`border-b-2 px-4 py-3 font-medium ${
+              className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-3 font-medium sm:px-4 ${
                 tab === t.key
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-slate-500 hover:text-slate-800'

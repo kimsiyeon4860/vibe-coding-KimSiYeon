@@ -14,5 +14,5 @@
     "resolveJsonModule": true,
     "esModuleInterop": true
   },
-  "include": ["electron.vite.config.ts", "vitest.config.ts", "tests/**/*", "rules/*.json", "src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/core/**/*", "src/web/sqljsDatabase.ts"]
+  "include": ["electron.vite.config.ts", "vite.web.config.ts", "vitest.config.ts", "tests/**/*", "rules/*.json", "src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/core/**/*", "src/web/sqljsDatabase.ts"]
 }

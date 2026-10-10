@@ -15,6 +15,7 @@ import {
   type TodayView
 } from '../../../shared/types'
 import LifeEventBar from '../components/LifeEventBar'
+import WebNotice from '../components/WebNotice'
 import PharmacistNotice from '../components/PharmacistNotice'
 
 /** 같은 시각·슬롯끼리 묶은 한 덩어리 */
@@ -89,7 +90,7 @@ export default function TodayPage() {
   const title = format(parseISO(view.planDate), 'M월 d일 (EEE)', { locale: ko })
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6">
       <div className="mb-4 flex items-baseline justify-between">
         <h1 className="text-xl font-bold">{title} 복용</h1>
         {view.entries.length > 0 && (
@@ -98,6 +99,8 @@ export default function TodayPage() {
           </span>
         )}
       </div>
+
+      <WebNotice />
 
       <LifeEventBar
         events={view.events}

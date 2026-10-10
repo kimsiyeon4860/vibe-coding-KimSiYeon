@@ -353,8 +353,29 @@ export interface TodayView {
 
 // ---------------------------------------------------------------- window.api
 
-/** preload가 화면에 노출하는 함수 목록 (window.api) */
+/** 웹판 브라우저 알림 권한 ('unsupported' = 브라우저가 알림을 지원하지 않음) */
+export type NotificationStatus = 'default' | 'granted' | 'denied' | 'unsupported'
+
+/** 웹판에서만 쓰는 기능 (데스크톱판에는 없음) */
+export interface WebOnlyApi {
+  /** 검색 API 키 (이 브라우저에만 저장) */
+  getKeys: () => Promise<{ foodSafety: string; dataGoKr: string }>
+  setKeys: (keys: { foodSafety: string; dataGoKr: string }) => Promise<void>
+  /** 데이터 백업: DB 파일 바이트 */
+  exportBackup: () => Promise<Uint8Array>
+  /** 백업 불러오기: 성공하면 페이지를 다시 연다 */
+  importBackup: (bytes: Uint8Array) => Promise<{ ok: true } | { ok: false; error: string }>
+  notificationStatus: () => NotificationStatus
+  /** 알림 권한을 묻고, 알림음도 한 번 재생해 소리를 켠다 (사용자가 누른 버튼에서 불러야 한다) */
+  enableNotifications: () => Promise<NotificationStatus>
+}
+
+/** preload(데스크톱) 또는 src/web(웹)가 화면에 노출하는 함수 목록 (window.api) */
 export interface PillMateApi {
+  /** 실행 환경 */
+  platform: 'desktop' | 'web'
+  /** 웹판에서만 */
+  web?: WebOnlyApi
   supplements: {
     list: () => Promise<Supplement[]>
     create: (draft: SupplementDraft) => Promise<SaveResult>

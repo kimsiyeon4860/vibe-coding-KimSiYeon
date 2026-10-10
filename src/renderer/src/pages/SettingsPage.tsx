@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { computeSlotTimes, parseSettings } from '../../../shared/schedule'
+import WebSettings from '../components/WebSettings'
 import {
   LIFE_EVENTS,
   SLOT_LABELS,
@@ -84,6 +85,7 @@ export default function SettingsPage() {
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   const [envInfo, setEnvInfo] = useState<EnvInfo | null>(null)
+  const isWeb = window.api.platform === 'web'
 
   useEffect(() => {
     void window.api.app.envInfo().then(setEnvInfo)
@@ -121,7 +123,7 @@ export default function SettingsPage() {
     'rounded-lg border border-slate-300 px-3 py-1.5 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-6">
+    <div className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
       <form onSubmit={(e) => void submit(e)} className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">생활 시간</h2>
         <p className="mt-1 text-sm text-slate-500">입력한 시간으로 복용 시점별 알람 시간을 계산합니다.</p>
@@ -227,7 +229,7 @@ export default function SettingsPage() {
 
         <h3 className="mt-6 font-semibold">생활 기록 방식</h3>
         <p className="mt-1 text-sm text-slate-500">
-          <b>클릭 기록</b>: &lsquo;오늘 복용&rsquo; 탭이나 트레이에서 &lsquo;일어났어요&rsquo;·&lsquo;점심 먹어요&rsquo;를 누른 때를 기준으로
+          <b>클릭 기록</b>: &lsquo;오늘 복용&rsquo; 탭{isWeb ? '' : '이나 트레이'}에서 &lsquo;일어났어요&rsquo;·&lsquo;점심 먹어요&rsquo;를 누른 때를 기준으로
           알람이 울립니다 (식후 알람은 누른 뒤 식후 간격만큼). 생활이 불규칙하면 이쪽이 맞습니다. <b>고정 시간</b>: 위에 입력한
           시간에 울립니다.
         </p>
@@ -325,13 +327,21 @@ export default function SettingsPage() {
           최대 횟수를 넘으면 소리는 멈추지만 알람 창은 응답할 때까지 화면에 남아 있습니다.
         </p>
 
-        <h3 className="mt-6 font-semibold">앱</h3>
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={draft.autoLaunch} onChange={(e) => update({ autoLaunch: e.target.checked })} />
-          Windows 시작 시 자동 실행 (작업표시줄 트레이에만 뜹니다)
-        </label>
-        {envInfo && !envInfo.isPackaged && (
-          <p className="mt-1 text-xs text-slate-500">개발 모드에서는 적용되지 않고, 설치한 앱에서만 적용됩니다.</p>
+        {!isWeb && (
+          <>
+            <h3 className="mt-6 font-semibold">앱</h3>
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.autoLaunch}
+                onChange={(e) => update({ autoLaunch: e.target.checked })}
+              />
+              Windows 시작 시 자동 실행 (작업표시줄 트레이에만 뜹니다)
+            </label>
+            {envInfo && !envInfo.isPackaged && (
+              <p className="mt-1 text-xs text-slate-500">개발 모드에서는 적용되지 않고, 설치한 앱에서만 적용됩니다.</p>
+            )}
+          </>
         )}
 
         {errors.length > 0 && (
@@ -353,7 +363,9 @@ export default function SettingsPage() {
         </div>
       </form>
 
-      {envInfo && (
+      {window.api.web && <WebSettings web={window.api.web} />}
+
+      {envInfo && !isWeb && (
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold">제품 검색 API 키</h2>
           <p className="mt-1 text-sm">
@@ -389,8 +401,10 @@ export default function SettingsPage() {
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">알람 테스트</h2>
         <p className="mt-1 text-sm text-slate-500">
-          알람 창·알림·소리가 잘 나오는지 확인합니다. 창을 닫아도 앱은 작업표시줄 오른쪽 트레이에서 계속
-          실행됩니다.
+          알람 창·알림·소리가 잘 나오는지 확인합니다.{' '}
+          {isWeb
+            ? '웹판은 이 탭이 열려 있어야 알람이 울립니다.'
+            : '창을 닫아도 앱은 작업표시줄 오른쪽 트레이에서 계속 실행됩니다.'}
         </p>
         <button
           type="button"
