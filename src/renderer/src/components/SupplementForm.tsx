@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import type { PublicProduct } from '../../../shared/publicData'
 import { computeSlotTimes } from '../../../shared/schedule'
 import { parseSupplementDraft } from '../../../shared/supplementInput'
 import {
@@ -10,6 +11,7 @@ import {
   type Supplement,
   type SupplementDraft
 } from '../../../shared/types'
+import ProductSearch from './ProductSearch'
 
 interface Props {
   /** 수정할 영양제. 없으면 새로 추가 */
@@ -40,6 +42,19 @@ function toDraft(s?: Supplement): SupplementDraft {
 export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
   const [draft, setDraft] = useState<SupplementDraft>(() => toDraft(initial))
   const [errors, setErrors] = useState<string[]>([])
+  /** 검색 결과로 채운 제품 (확인 안내·주의사항 표시용) */
+  const [filledFrom, setFilledFrom] = useState<PublicProduct | null>(null)
+
+  // 검색 결과로 채우기: 복용 시점은 사용자가 고른 그대로 둔다
+  const fillFrom = (product: PublicProduct) => {
+    setDraft((d) => ({
+      ...product.draft,
+      ingredients: product.draft.ingredients.length > 0 ? product.draft.ingredients : [emptyIngredient()],
+      schedule: d.schedule
+    }))
+    setFilledFrom(product)
+    setErrors([])
+  }
   const [saving, setSaving] = useState(false)
   const [slotTimes, setSlotTimes] = useState<Record<Slot, string> | null>(null)
 
@@ -113,6 +128,23 @@ export default function SupplementForm({ initial, onSaved, onCancel }: Props) {
         </h2>
 
         <div className="space-y-4 overflow-y-auto px-6 py-4">
+          <ProductSearch onPick={fillFrom} />
+
+          {filledFrom && (
+            <div role="note" className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p>
+                <b>공공데이터에서 가져왔습니다. 저장 전에 아래 내용이 실제 제품과 맞는지 확인하고 고쳐 주세요.</b>
+              </p>
+              <p>제조사 칸에는 판매 브랜드가 아니라 실제로 만든 업체(위탁 제조사)가 들어갈 수 있습니다.</p>
+              {filledFrom.caution && (
+                <details>
+                  <summary className="cursor-pointer">섭취 시 주의사항 보기</summary>
+                  <p className="mt-1 whitespace-pre-line text-amber-800">{filledFrom.caution}</p>
+                </details>
+              )}
+            </div>
+          )}
+
           <label className="block">
             <span className="text-sm font-medium">
               제품명 <span className="text-red-500">*</span>

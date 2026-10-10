@@ -1,4 +1,5 @@
 // 메인 프로세스·preload·화면이 함께 쓰는 타입
+import type { SupplementSearchResult } from './publicData'
 
 /** 알람 팝업에 표시할 복용 항목 하나 */
 export interface AlarmItem {
@@ -136,6 +137,8 @@ export interface SupplementDraft {
   labelInstruction: string
   ingredients: IngredientDraft[]
   schedule: ScheduleDraft[]
+  /** 검색(공공데이터)으로 채웠으면 'public_data'. 없으면 직접 입력 */
+  source?: string
 }
 
 /** 검사를 통과한 영양제 입력값 */
@@ -145,6 +148,8 @@ export interface SupplementInput {
   labelInstruction: string
   ingredients: Ingredient[]
   schedule: ScheduleItem[]
+  /** 공공데이터 검색으로 채웠을 때만 */
+  source?: 'public_data'
 }
 
 export type SaveResult = { ok: true; supplement: Supplement } | { ok: false; errors: string[] }
@@ -263,6 +268,10 @@ export interface PillMateApi {
     remove: (id: number) => Promise<void>
     /** 여러 영양제의 복용 시점을 한 번에 바꾼다 (그대로인 시점은 복용량·직접 지정 시간 유지) */
     applySchedule: (changes: ScheduleChange[]) => Promise<void>
+  }
+  search: {
+    /** 식품안전나라 건강기능식품 검색 (제품명 필수, 제조사 선택) */
+    supplements: (name: string, manufacturer: string) => Promise<SupplementSearchResult>
   }
   prescriptions: {
     list: () => Promise<Prescription[]>

@@ -2,10 +2,12 @@ import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
 import { openDatabase } from './db/connection'
+import { loadEnv } from './env'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { registerAlarmHandlers } from './notifier'
 import { registerPrescriptionHandlers } from './prescriptionHandlers'
 import { registerScheduleHandlers } from './scheduleHandlers'
+import { registerSearchHandlers } from './searchHandlers'
 import { startScheduler, type Scheduler } from './scheduler'
 import { registerSupplementHandlers } from './supplementHandlers'
 import { createPillIcon } from './trayIcon'
@@ -31,6 +33,7 @@ if (!app.requestSingleInstanceLock()) {
 function start(): void {
   app.setAppUserModelId(APP_ID)
   setupAutoLaunch()
+  loadEnv()
 
   // DB 파일 위치: %APPDATA%\PillMate\pillmate.db
   db = openDatabase(join(app.getPath('userData'), 'pillmate.db'))
@@ -45,6 +48,7 @@ function start(): void {
   scheduler = activeScheduler
   registerSupplementHandlers(db, activeScheduler.refresh)
   registerPrescriptionHandlers(db, activeScheduler.refresh)
+  registerSearchHandlers()
   registerScheduleHandlers(db, activeScheduler.refresh)
   ipcMain.on('alarm:test', activeScheduler.testAlarm)
 }

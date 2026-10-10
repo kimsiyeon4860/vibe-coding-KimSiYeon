@@ -56,7 +56,10 @@ export function parseSupplementDraft(raw: unknown): ParseResult<SupplementInput>
   const schedule = parseSchedule(raw.schedule, errors)
 
   if (errors.length > 0) return { ok: false, errors }
-  return { ok: true, value: { name, manufacturer, labelInstruction, ingredients, schedule } }
+  const value: SupplementInput = { name, manufacturer, labelInstruction, ingredients, schedule }
+  // 화면에서 올 수 있는 출처는 직접 입력과 공공데이터 검색뿐
+  if (raw.source === 'public_data') value.source = 'public_data'
+  return { ok: true, value }
 }
 
 /** 복용 시점 목록 검사. 슬롯 순서로 정렬해 돌려준다 (처방약 입력 검사도 쓴다) */

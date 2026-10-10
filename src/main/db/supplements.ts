@@ -97,12 +97,13 @@ export function updateSupplement(
   now: Date = new Date()
 ): Supplement | null {
   const updated = withTransaction(db, () => {
+    // 수정 중에 검색으로 다시 채웠으면 출처도 공공데이터로 (직접 고친 것은 출처를 바꾸지 않는다)
     const result = db
       .prepare(
-        `UPDATE products SET name = ?, manufacturer = ?, label_instruction = ?
+        `UPDATE products SET name = ?, manufacturer = ?, label_instruction = ?, source = COALESCE(?, source)
          WHERE id = ? AND type = 'supplement'`
       )
-      .run(input.name, input.manufacturer, input.labelInstruction, id)
+      .run(input.name, input.manufacturer, input.labelInstruction, input.source ?? null, id)
     if (result.changes === 0) return false
     db.prepare('DELETE FROM ingredients WHERE product_id = ?').run(id)
     insertIngredients(db, id, input.ingredients)

@@ -20,6 +20,10 @@ const api: PillMateApi = {
     applySchedule: (changes) => ipcRenderer.invoke('supplements:apply-schedule', changes)
   },
 
+  search: {
+    supplements: (name, manufacturer) => ipcRenderer.invoke('search:supplements', name, manufacturer)
+  },
+
   prescriptions: {
     list: () => ipcRenderer.invoke('prescriptions:list'),
     create: (draft) => ipcRenderer.invoke('prescriptions:create', draft),

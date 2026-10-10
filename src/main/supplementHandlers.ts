@@ -19,7 +19,7 @@ export function registerSupplementHandlers(db: DatabaseSync, onChanged: () => vo
   ipcMain.handle('supplements:create', (_event, draft: unknown): SaveResult => {
     const parsed = parseSupplementDraft(draft)
     if (!parsed.ok) return parsed
-    const supplement = createSupplement(db, parsed.value)
+    const supplement = createSupplement(db, parsed.value, parsed.value.source ?? 'manual')
     onChanged()
     return { ok: true, supplement }
   })

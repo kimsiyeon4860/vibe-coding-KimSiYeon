@@ -121,6 +121,9 @@ export default function SupplementsPage() {
                   <div className="flex flex-wrap items-baseline gap-2">
                     <h2 className="text-lg font-semibold">{s.name}</h2>
                     {s.manufacturer && <span className="text-sm text-slate-500">{s.manufacturer}</span>}
+                    {s.source === 'public_data' && (
+                      <span className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-700">공공데이터</span>
+                    )}
                     {!s.active && (
                       <span className="rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600">사용 중지</span>
                     )}
