@@ -1,20 +1,44 @@
-// 메인 창. 1단계에서는 테스트 알람 버튼만 있다.
+import { useState } from 'react'
+import SettingsPage from './pages/SettingsPage'
+import SupplementsPage from './pages/SupplementsPage'
+
+// 탭은 기능이 생기는 단계마다 추가한다 (오늘 복용·처방약은 3·4단계)
+const TABS = [
+  { key: 'supplements', label: '영양제' },
+  { key: 'settings', label: '설정' }
+] as const
+
+type TabKey = (typeof TABS)[number]['key']
+
 export default function App() {
+  const [tab, setTab] = useState<TabKey>('supplements')
+
   return (
-    <main className="flex h-full flex-col items-center justify-center gap-6 bg-slate-50 p-8 text-slate-800">
-      <h1 className="text-3xl font-bold">💊 PillMate</h1>
-      <p className="text-center text-slate-500">
-        알람이 확실히 뜨는지 먼저 확인해 보세요.
-        <br />
-        창을 닫아도 앱은 작업표시줄 오른쪽 트레이에서 계속 실행됩니다.
-      </p>
-      <button
-        type="button"
-        onClick={() => window.api.testAlarm()}
-        className="rounded-xl bg-indigo-600 px-6 py-3 text-lg font-semibold text-white shadow hover:bg-indigo-700 active:bg-indigo-800"
-      >
-        테스트 알람 울리기
-      </button>
-    </main>
+    <div className="flex h-full flex-col bg-slate-50 text-slate-800">
+      <header className="flex items-center gap-6 border-b border-slate-200 bg-white px-6">
+        <span className="py-3 text-lg font-bold">💊 PillMate</span>
+        <nav className="flex gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`border-b-2 px-4 py-3 font-medium ${
+                tab === t.key
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <main className="flex-1 overflow-y-auto">
+        {tab === 'supplements' && <SupplementsPage />}
+        {tab === 'settings' && <SettingsPage />}
+      </main>
+    </div>
   )
 }

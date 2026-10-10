@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 0. 현재 저장소 상태 (2026-10-10 기준)
 
 - 로드맵 **1단계 완료**: Electron 세팅, 트레이 상주, 테스트 알람(토스트 + 항상 위 팝업 + 소리). 팝업 버튼 응답은 아직 콘솔 로그만 남긴다(`notifier.ts`의 TODO, 3단계에서 기록·스누즈 구현).
+- 로드맵 **2단계 완료**: 영양제 수동 입력(추가·수정·사용 중지·삭제) + SQLite 저장. 삭제는 현재 하드 삭제 — 3단계에서 `intake_logs`가 생기면 기록 보존을 위해 사용 중지 위주로 바꿀지 재검토.
 - **Vite는 7에 고정**: electron-vite 5가 Vite 8을 지원하지 않는다. 같은 이유로 `@vitejs/plugin-react`는 5.x를 쓴다. 함부로 올리지 말 것.
 - Electron 44는 `npm install` 때가 아니라 처음 실행할 때 실행 파일을 내려받는다 (`node_modules/electron/dist`).
 - 이와 별도로 저장소에는 **Python/tkinter 프로토타입**이 있다:
@@ -45,7 +46,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---|---|---|
 | 앱 프레임워크 | Electron + electron-vite | JS/TS만으로 개발 가능, 트레이 상주·OS 알림·자동 실행 지원 |
 | UI | React + TypeScript + Tailwind CSS | 바이브 코딩에 예제가 가장 많음 |
-| 로컬 DB | SQLite (better-sqlite3) | 1인용, 서버 불필요 |
+| 로컬 DB | SQLite (Node 내장 `node:sqlite`) | 1인용, 서버 불필요. 네이티브 모듈 재빌드가 필요 없다 |
 | 스케줄러 | 메인 프로세스에서 30초 간격 체크 | 절전 복귀 후에도 누락 없이 처리하기 쉬움 |
 | 사진 인식·정보 검색 | Claude API (비전 + 웹 검색 도구) | 약통 사진에서 제품명·성분 추출, 정보 검색 |
 | 공공 데이터 | 식품안전나라 건강기능식품 Open API, 공공데이터포털 e약은요(의약품개요정보) | 국내 제품의 공식 정보 |
@@ -53,7 +54,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 패키징 | electron-builder | Windows 설치 파일(.exe) 생성 |
 
 - Claude 모델명은 코드에 하드코딩하지 않고 `.env`의 `CLAUDE_MODEL`로 관리한다.
-- better-sqlite3는 네이티브 모듈이므로 설치 후 `electron-builder install-app-deps`로 Electron용 재빌드가 필요하다 (`postinstall` 스크립트에 넣어 둘 것).
+- DB는 better-sqlite3 대신 `node:sqlite`(`DatabaseSync`)를 쓴다 (2단계에서 결정). Electron 44 내장 Node 24에 들어 있어 설치·재빌드가 없고, Vitest(일반 Node 24)에서도 같은 코드가 그대로 돈다. `db.transaction()`이 없으므로 `src/main/db/transaction.ts`의 `withTransaction`을 쓴다. 조회 결과는 `as unknown as Row` 로 타입을 붙인다.
 
 ## 4. 명령어
 
@@ -66,13 +67,14 @@ npm run build        # typecheck + out/ 에 빌드
 npm run build:win    # Windows 설치 파일 빌드 (dist/)
 ```
 
-Vitest는 3단계(스케줄러)에서 추가 예정. 추가하면 아래 명령을 쓴다:
-
 ```bash
-npm test                                  # 전체
-npx vitest run tests/scheduler.test.ts    # 파일 하나만
-npx vitest run -t "테스트 이름"            # 이름으로 특정 테스트만
+npm test                                       # Vitest 전체 (tests/**/*.test.ts)
+npx vitest run tests/supplementInput.test.ts   # 파일 하나만
+npx vitest run -t "테스트 이름"                 # 이름으로 특정 테스트만
 ```
+
+- DB 테스트는 `openDatabase(':memory:')`로 메모리 DB를 만든다. DB 함수는 모두 `db`를 첫 인자로 받으므로 Electron 없이 테스트할 수 있다.
+- 실제 DB 파일: `%APPDATA%\PillMate\pillmate.db` (`app.getPath('userData')`).
 
 - 개발 중 앱이 이미 트레이에 떠 있으면 `npm run dev`로 새로 띄운 앱은 단일 인스턴스 잠금 때문에 바로 종료된다. 트레이 메뉴 "종료"로 먼저 끈다.
 - 실행 중인 앱을 자동으로 점검할 때: `npx electron-vite dev --inspect 9229 --remoteDebuggingPort 9333` → 메인 프로세스는 9229, 화면은 9333(`/json/list`)에 CDP로 접속해 `Runtime.evaluate`.
@@ -159,7 +161,9 @@ tests/
 - `intake_logs` — id, schedule_item_id, scheduled_at, action(`taken`|`snoozed`|`skipped`|`missed`), acted_at
 - `settings` — 기상·식사·취침 시간, 알람 소리, 재알림 간격·횟수
 
-DB 스키마를 바꿀 때는 마이그레이션 파일을 추가하고, 기존 데이터를 지우지 않는다.
+DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열 **끝에** 새 SQL을 추가한다 (`PRAGMA user_version`으로 적용 여부를 판단). 이미 있는 항목은 고치지 않고, 기존 데이터를 지우지 않는다. 현재 버전 1: `products`, `ingredients`.
+
+입력값 검사는 `src/shared/supplementInput.ts` 같은 공용 순수 함수로 두고, 화면(즉시 오류 표시)과 메인 IPC 핸들러(저장 직전 재검사) 양쪽에서 쓴다. 화면 → 메인으로는 입력 창 값 그대로(`*Draft`, 함량도 문자열)를 보내고 메인에서 파싱한다.
 
 ## 8. 개발 순서 (로드맵)
 

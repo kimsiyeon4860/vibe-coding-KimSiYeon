@@ -1,7 +1,11 @@
+import { join } from 'node:path'
+import type { DatabaseSync } from 'node:sqlite'
 import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
 import type { AlarmItem } from '../shared/types'
+import { openDatabase } from './db/connection'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { registerAlarmHandlers, showAlarm } from './notifier'
+import { registerSupplementHandlers } from './supplementHandlers'
 import { createPillIcon } from './trayIcon'
 
 // Windows 토스트 알림이 표시되려면 앱 ID가 필요하다
@@ -9,6 +13,7 @@ const APP_ID = 'com.pillmate.app'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let db: DatabaseSync | null = null
 /** true일 때만 창을 진짜로 닫는다 (트레이 메뉴 "종료") */
 let isQuitting = false
 
@@ -23,6 +28,10 @@ if (!app.requestSingleInstanceLock()) {
 function start(): void {
   app.setAppUserModelId(APP_ID)
   setupAutoLaunch()
+
+  // DB 파일 위치: %APPDATA%\PillMate\pillmate.db
+  db = openDatabase(join(app.getPath('userData'), 'pillmate.db'))
+  registerSupplementHandlers(db)
   registerAlarmHandlers()
   ipcMain.on('alarm:test', triggerTestAlarm)
 
@@ -36,6 +45,11 @@ app.on('window-all-closed', () => {})
 
 app.on('before-quit', () => {
   isQuitting = true
+})
+
+app.on('will-quit', () => {
+  db?.close()
+  db = null
 })
 
 function createMainWindow(visible: boolean): void {

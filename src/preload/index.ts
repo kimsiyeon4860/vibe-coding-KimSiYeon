@@ -4,6 +4,14 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { AlarmItem, PillMateApi } from '../shared/types'
 
 const api: PillMateApi = {
+  supplements: {
+    list: () => ipcRenderer.invoke('supplements:list'),
+    create: (draft) => ipcRenderer.invoke('supplements:create', draft),
+    update: (id, draft) => ipcRenderer.invoke('supplements:update', id, draft),
+    setActive: (id, active) => ipcRenderer.invoke('supplements:set-active', id, active),
+    remove: (id) => ipcRenderer.invoke('supplements:delete', id)
+  },
+
   testAlarm: () => ipcRenderer.send('alarm:test'),
 
   getAlarmItems: () => ipcRenderer.invoke('alarm:get-items'),
