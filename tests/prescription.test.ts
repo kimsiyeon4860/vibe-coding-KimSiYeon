@@ -141,7 +141,7 @@ describe('등록 전에 이미 지난 시간은 울리지 않는다', () => {
     const addedAt = '2026-10-10T14:00:00.000+09:00'
     const plan = buildDayPlan(
       '2026-10-10',
-      DEFAULT_SETTINGS,
+      { ...DEFAULT_SETTINGS, eventModes: { wake: 'fixed' as const, breakfast: 'fixed' as const, lunch: 'fixed' as const, dinner: 'fixed' as const, bed: 'fixed' as const } },
       [
         {
           productId: 1,

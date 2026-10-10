@@ -1,6 +1,24 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { computeSlotTimes, parseSettings } from '../../../shared/schedule'
-import { SLOT_LABELS, SLOTS, type EnvInfo, type Settings, type Slot } from '../../../shared/types'
+import {
+  LIFE_EVENTS,
+  SLOT_LABELS,
+  SLOTS,
+  type EnvInfo,
+  type EventMode,
+  type LifeEvent,
+  type Settings,
+  type Slot
+} from '../../../shared/types'
+
+/** 설정 화면의 생활 사건 이름 */
+const EVENT_NAMES: Record<LifeEvent, string> = {
+  wake: '기상',
+  breakfast: '아침 식사',
+  lunch: '점심 식사',
+  dinner: '저녁 식사',
+  bed: '취침'
+}
 
 /** 입력 창 값 (숫자 칸도 입력 중에는 문자열) */
 interface SettingsDraft {
@@ -17,6 +35,8 @@ interface SettingsDraft {
   repeatIntervalMinutes: string
   repeatMaxCount: string
   autoLaunch: boolean
+  eventModes: Record<LifeEvent, EventMode>
+  eventFallbackMinutes: string
 }
 
 const TIME_FIELDS = [
@@ -37,7 +57,8 @@ function toDraft(s: Settings): SettingsDraft {
     slotOverrides,
     snoozeMinutes: String(s.snoozeMinutes),
     repeatIntervalMinutes: String(s.repeatIntervalMinutes),
-    repeatMaxCount: String(s.repeatMaxCount)
+    repeatMaxCount: String(s.repeatMaxCount),
+    eventFallbackMinutes: String(s.eventFallbackMinutes)
   }
 }
 
@@ -49,7 +70,8 @@ function fromDraft(d: SettingsDraft): Settings {
     beforeBedMinutes: num(d.beforeBedMinutes),
     snoozeMinutes: num(d.snoozeMinutes),
     repeatIntervalMinutes: num(d.repeatIntervalMinutes),
-    repeatMaxCount: num(d.repeatMaxCount)
+    repeatMaxCount: num(d.repeatMaxCount),
+    eventFallbackMinutes: num(d.eventFallbackMinutes)
   }
 }
 
@@ -182,6 +204,51 @@ export default function SettingsPage() {
             })}
           </tbody>
         </table>
+
+        <h3 className="mt-6 font-semibold">생활 기록 방식</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          <b>클릭 기록</b>: &lsquo;오늘 복용&rsquo; 탭이나 트레이에서 &lsquo;일어났어요&rsquo;·&lsquo;점심 먹어요&rsquo;를 누른 때를 기준으로
+          알람이 울립니다 (식후 알람은 누른 뒤 식후 간격만큼). 생활이 불규칙하면 이쪽이 맞습니다. <b>고정 시간</b>: 위에 입력한
+          시간에 울립니다.
+        </p>
+        <table className="mt-2 w-full text-sm">
+          <tbody>
+            {LIFE_EVENTS.map((event) => (
+              <tr key={event} className="border-t border-slate-100">
+                <td className="w-28 py-2 font-medium">{EVENT_NAMES[event]}</td>
+                {(['click', 'fixed'] as const).map((mode) => (
+                  <td key={mode} className="py-2">
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="radio"
+                        name={`mode-${event}`}
+                        checked={draft.eventModes[event] === mode}
+                        onChange={() => update({ eventModes: { ...draft.eventModes, [event]: mode } })}
+                      />
+                      {mode === 'click' ? '클릭 기록' : '고정 시간'}
+                    </label>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <label className="mt-2 block text-sm">
+          클릭 기록인데 기록이 없으면 평소 시간{' '}
+          <input
+            type="number"
+            min={15}
+            max={240}
+            value={draft.eventFallbackMinutes}
+            onChange={(e) => update({ eventFallbackMinutes: e.target.value })}
+            className={`${inputClass} w-20`}
+          />{' '}
+          분 뒤에 그냥 알림
+        </label>
+        <p className="mt-1 text-xs text-slate-500">
+          처방약의 &lsquo;식전 N분&rsquo;은 식사 시작을 미리 알 수 없어 항상 위의 고정 시간으로 알립니다. 영양제마다 직접 지정한
+          시간도 그대로 따릅니다.
+        </p>
 
         <h3 className="mt-6 font-semibold">알람</h3>
         <div className="mt-2 grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-3 text-sm">

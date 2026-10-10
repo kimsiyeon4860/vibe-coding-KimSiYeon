@@ -15,8 +15,11 @@ import type { IntakeLog, Settings } from '../src/shared/types'
 
 const settings = (overrides: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...overrides })
 
+/** 고정 시간 모드 (클릭 기록 없이 설정 시간 그대로) */
+const fixedModes = { eventModes: { wake: 'fixed' as const, breakfast: 'fixed' as const, lunch: 'fixed' as const, dinner: 'fixed' as const, bed: 'fixed' as const } }
+
 /** 자정 넘어 자는 사람: 01:00 취침, 08:00 기상 */
-const nightOwl = settings({ wakeTime: '08:00', breakfastTime: '09:00', bedTime: '01:00' })
+const nightOwl = settings({ wakeTime: '08:00', breakfastTime: '09:00', bedTime: '01:00', ...fixedModes })
 
 describe('시간 문자열', () => {
   it('HH:mm ↔ 분', () => {

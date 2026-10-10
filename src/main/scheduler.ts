@@ -23,8 +23,9 @@ export interface Scheduler {
 
 /**
  * @param onRecorded 알람 응답으로 복용 기록이 바뀌었을 때 (오늘 탭 새로고침용)
+ * @param onTick 확인할 때마다 함께 할 일 (기상 기록 묻기, 트레이 메뉴 갱신)
  */
-export function startScheduler(db: DatabaseSync, onRecorded: () => void): Scheduler {
+export function startScheduler(db: DatabaseSync, onRecorded: () => void, onTick: () => void = () => {}): Scheduler {
   /** 지금 떠 있는 알람의 울림 상태 (재알림 횟수). 앱을 다시 켜면 처음부터 센다 */
   let ringState: RingState | null = null
   let testItem: AlarmItem | null = null
@@ -49,6 +50,7 @@ export function startScheduler(db: DatabaseSync, onRecorded: () => void): Schedu
       forceRing = false
 
       presentAlarm({ items, snoozeMinutes: settings.snoozeMinutes }, ring ? { sound: settings.alarmSound } : false)
+      onTick()
     } catch (error) {
       // 한 번 실패해도 타이머는 계속 돈다
       console.error('[스케줄러] 확인 중 오류', error)

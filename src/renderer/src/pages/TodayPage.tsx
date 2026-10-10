@@ -2,7 +2,16 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useCallback, useEffect, useState } from 'react'
 import { clockOf } from '../../../shared/schedule'
-import { SLOT_LABELS, type CheckAction, type DayPlanEntry, type TodayView } from '../../../shared/types'
+import {
+  LIFE_EVENT_LABELS,
+  SLOT_LABELS,
+  type CheckAction,
+  type DayPlanEntry,
+  type Hm,
+  type LifeEvent,
+  type TodayView
+} from '../../../shared/types'
+import LifeEventBar from '../components/LifeEventBar'
 import PharmacistNotice from '../components/PharmacistNotice'
 
 /** 같은 시각·슬롯끼리 묶은 한 덩어리 */
@@ -19,7 +28,13 @@ function groupEntries(entries: DayPlanEntry[]): Group[] {
     const key = `${e.scheduledAt}|${e.slot}`
     const last = groups.at(-1)
     if (last?.key === key) last.entries.push(e)
-    else groups.push({ key, time: e.time, label: SLOT_LABELS[e.slot], entries: [e] })
+    else
+      groups.push({
+        key,
+        time: e.waitingFor ? '기록 대기' : e.time,
+        label: SLOT_LABELS[e.slot],
+        entries: [e]
+      })
   }
   return groups
 }
@@ -57,6 +72,12 @@ export default function TodayPage() {
   const undo = async (e: DayPlanEntry) => {
     setView(await window.api.today.undo(view.planDate, e.productId, e.slot))
   }
+  const recordEvent = async (event: LifeEvent, time?: Hm) => {
+    setView(await window.api.today.recordEvent(view.planDate, event, time))
+  }
+  const clearEvent = async (event: LifeEvent) => {
+    setView(await window.api.today.clearEvent(view.planDate, event))
+  }
 
   const done = view.entries.filter((e) => e.status !== 'pending').length
   const title = format(parseISO(view.planDate), 'M월 d일 (EEE)', { locale: ko })
@@ -71,6 +92,13 @@ export default function TodayPage() {
           </span>
         )}
       </div>
+
+      <LifeEventBar
+        events={view.events}
+        clickEvents={view.clickEvents}
+        onRecord={(event, time) => void recordEvent(event, time)}
+        onClear={(event) => void clearEvent(event)}
+      />
 
       {view.mixesPrescriptionAndSupplement && <PharmacistNotice />}
 
@@ -135,6 +163,11 @@ function EntryRow({ entry, overdue, snoozed, onCheck, onUndo }: EntryRowProps) {
         </span>
         {entry.kind === 'prescription' && <PrescriptionBadge />}
         {entry.dose && <span className="ml-2 text-sm text-slate-500">{entry.dose}</span>}
+        {entry.status === 'pending' && entry.waitingFor && !overdue && (
+          <span className="ml-2 text-xs text-slate-500">
+            &lsquo;{LIFE_EVENT_LABELS[entry.waitingFor]}&rsquo; 기록하면 알림 · 기록이 없으면 {clockOf(entry.scheduledAt)}에 알림
+          </span>
+        )}
         {snoozed && entry.snoozedUntil ? (
           <span className="ml-2 text-xs font-medium text-indigo-600">{clockOf(entry.snoozedUntil)}에 다시 알림</span>
         ) : (

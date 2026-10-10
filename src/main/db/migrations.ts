@@ -76,6 +76,16 @@ export const MIGRATIONS: readonly string[] = [
 
   -- 이보다 이른 예정 시각은 알람을 울리지 않는다 (등록 전에 이미 지난 시간). 기존 행은 아주 옛날로 둔다
   ALTER TABLE schedule_items ADD COLUMN created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z';
+  `,
+
+  // 4: 생활 기록 — 클릭으로 기록한 기상·식사·취침 (로드맵 8-1단계)
+  `
+  CREATE TABLE life_events (
+    plan_date TEXT NOT NULL,  -- 복용일 "yyyy-MM-dd"
+    event     TEXT NOT NULL CHECK (event IN ('wake', 'breakfast', 'lunch', 'dinner', 'bed')),
+    at        TEXT NOT NULL,  -- ISO 8601
+    PRIMARY KEY (plan_date, event)
+  );
   `
 ]
 

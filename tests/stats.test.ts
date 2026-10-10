@@ -20,6 +20,7 @@ const entry = (overrides: Partial<DayPlanEntry> = {}): DayPlanEntry => ({
   status: 'pending',
   actedAt: null,
   snoozedUntil: null,
+  waitingFor: null,
   addedAt: OLD,
   ...overrides
 })

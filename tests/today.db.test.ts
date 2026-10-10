@@ -70,6 +70,7 @@ describe('오늘 복용', () => {
   })
 
   it('기록에는 예정 일시도 함께 남는다', () => {
+    saveSettings(db, { ...DEFAULT_SETTINGS, eventModes: { wake: 'fixed' as const, breakfast: 'fixed' as const, lunch: 'fixed' as const, dinner: 'fixed' as const, bed: 'fixed' as const } })
     const { id } = createSupplement(db, vitaminD)
     recordCheck(db, DATE, id, 'breakfast', 'skipped', NOW)
     const row = db.prepare('SELECT scheduled_at, action FROM intake_logs').get()

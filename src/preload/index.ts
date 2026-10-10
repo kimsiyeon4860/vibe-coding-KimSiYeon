@@ -41,7 +41,14 @@ const api: PillMateApi = {
     get: () => ipcRenderer.invoke('today:get'),
     check: (planDate, productId, slot, action) => ipcRenderer.invoke('today:check', planDate, productId, slot, action),
     undo: (planDate, productId, slot) => ipcRenderer.invoke('today:undo', planDate, productId, slot),
-    onChanged: (callback) => subscribe('today:changed', callback)
+    onChanged: (callback) => subscribe('today:changed', callback),
+    recordEvent: (planDate, event, time) => ipcRenderer.invoke('today:record-event', planDate, event, time),
+    clearEvent: (planDate, event) => ipcRenderer.invoke('today:clear-event', planDate, event)
+  },
+
+  wake: {
+    info: () => ipcRenderer.invoke('wake:info'),
+    respond: (answer) => ipcRenderer.send('wake:respond', answer)
   },
 
   stats: {

@@ -52,6 +52,36 @@ export const SLOT_LABELS: Record<Slot, string> = {
 /** 시간 문자열 "HH:mm" (24시간) */
 export type Hm = string
 
+// ---------------------------------------------------------------- 생활 기록
+
+/** 클릭으로 기록하는 생활 사건: 일어남 / 아침·점심·저녁 식사 / 잠자리 */
+export const LIFE_EVENTS = ['wake', 'breakfast', 'lunch', 'dinner', 'bed'] as const
+export type LifeEvent = (typeof LIFE_EVENTS)[number]
+
+/** 기록 버튼 문구 */
+export const LIFE_EVENT_LABELS: Record<LifeEvent, string> = {
+  wake: '일어났어요',
+  breakfast: '아침 먹어요',
+  lunch: '점심 먹어요',
+  dinner: '저녁 먹어요',
+  bed: '잘게요'
+}
+
+/** 각 슬롯 알람이 따르는 생활 사건 */
+export const SLOT_EVENT: Record<Slot, LifeEvent> = {
+  wake: 'wake',
+  breakfast: 'breakfast',
+  lunch: 'lunch',
+  dinner: 'dinner',
+  bedtime: 'bed'
+}
+
+/** fixed = 설정한 시간에 알람 / click = 클릭으로 기록한 때를 기준으로 알람 */
+export type EventMode = 'fixed' | 'click'
+
+/** 복용일의 생활 기록 (ISO 8601). 기록하지 않은 것은 없음 */
+export type DayEvents = Partial<Record<LifeEvent, string>>
+
 /** 생활 시간 설정. 슬롯 알람 시간은 여기서 계산된다 */
 export interface Settings {
   wakeTime: Hm
@@ -75,6 +105,10 @@ export interface Settings {
   repeatMaxCount: number
   /** Windows 시작 시 자동 실행 (설치한 앱에서만 적용) */
   autoLaunch: boolean
+  /** 사건별로 고정 시간을 쓸지, 클릭 기록을 기준으로 할지 */
+  eventModes: Record<LifeEvent, EventMode>
+  /** 클릭 기록 모드에서 기록이 없으면 평소 시간 + N분에 그냥 알린다 */
+  eventFallbackMinutes: number
 }
 
 /** 설정 탭의 '검색 API 키' 상태 */
@@ -246,6 +280,8 @@ export type EntryStatus = 'pending' | CheckAction
 
 /** 하루 복용 계획의 한 줄 (영양제 × 슬롯) */
 export interface DayPlanEntry {
+  /** 클릭 기록을 기다리는 중이면 그 사건 (기록이 없으면 scheduledAt = 평소 시간 + 대기 시간) */
+  waitingFor: LifeEvent | null
   productId: number
   productName: string
   kind: ProductKind
@@ -271,6 +307,10 @@ export interface TodayView {
   entries: DayPlanEntry[]
   /** 오늘 처방약과 영양제를 함께 먹는지 → "약사에게 확인하세요" 안내 */
   mixesPrescriptionAndSupplement: boolean
+  /** 그 복용일의 생활 기록 */
+  events: DayEvents
+  /** '클릭 기록' 모드인 사건 (오늘 탭에 기록 버튼으로 보여줄 것) */
+  clickEvents: LifeEvent[]
 }
 
 // ---------------------------------------------------------------- window.api
@@ -309,6 +349,16 @@ export interface PillMateApi {
     undo: (planDate: string, productId: number, slot: Slot) => Promise<TodayView>
     /** 알람 팝업 응답 등으로 오늘 기록이 바뀌면 호출됨. 반환값은 구독 해제 함수 */
     onChanged: (callback: () => void) => () => void
+    /** 생활 기록. time("HH:mm")이 없으면 지금 */
+    recordEvent: (planDate: string, event: LifeEvent, time?: Hm) => Promise<TodayView>
+    clearEvent: (planDate: string, event: LifeEvent) => Promise<TodayView>
+  }
+  /** 그날 처음 PC를 쓸 때 뜨는 기상 기록 창 */
+  wake: {
+    /** 창이 열릴 때: 묻는 복용일과 지금 시각 */
+    info: () => Promise<{ planDate: string; now: Hm }>
+    /** now = 방금 일어남, at = 그 시각에 일어남, later = 나중에 (오늘은 다시 묻지 않음) */
+    respond: (answer: { action: 'now' } | { action: 'at'; time: Hm } | { action: 'later' }) => void
   }
   stats: {
     /** 최근 7일 또는 30일 복용 통계 */

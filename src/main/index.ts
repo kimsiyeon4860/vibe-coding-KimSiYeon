@@ -1,6 +1,8 @@
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, Tray, type MenuItemConstructorOptions } from 'electron'
+import { clockOf, planDateFor } from '../shared/schedule'
+import { LIFE_EVENT_LABELS, LIFE_EVENTS, type LifeEvent } from '../shared/types'
 import { registerAppHandlers } from './appHandlers'
 import { applyAutoLaunch } from './autoLaunch'
 import { openDatabase } from './db/connection'
@@ -12,6 +14,8 @@ import { registerPrescriptionHandlers } from './prescriptionHandlers'
 import { registerScheduleHandlers } from './scheduleHandlers'
 import { registerSearchHandlers } from './searchHandlers'
 import { startScheduler, type Scheduler } from './scheduler'
+import { getTodayView, recordLifeEvent } from './today'
+import { createWakePrompter, type WakePrompter } from './wakePrompt'
 import { registerSupplementHandlers } from './supplementHandlers'
 import { createPillIcon } from './trayIcon'
 
@@ -46,9 +50,20 @@ function start(): void {
   createMainWindow(!process.argv.includes('--minimized'))
 
   registerAlarmHandlers()
-  // 알람 응답으로 기록이 바뀌면 열려 있는 오늘 탭을 새로고침
-  const activeScheduler = startScheduler(db, () => mainWindow?.webContents.send('today:changed'))
+  // 알람 응답·기상 기록으로 오늘 기록이 바뀌면 열려 있는 오늘 탭을 새로고침
+  const notifyTodayChanged = () => mainWindow?.webContents.send('today:changed')
+  let wakePrompter: WakePrompter | null = null
+  // 30초마다: 알람 확인 + 기상 기록 묻기 + 트레이 메뉴(생활 기록 표시) 갱신
+  const activeScheduler = startScheduler(db, notifyTodayChanged, () => {
+    wakePrompter?.check()
+    updateTrayMenu()
+  })
   scheduler = activeScheduler
+  wakePrompter = createWakePrompter(db, () => {
+    activeScheduler.refresh()
+    notifyTodayChanged()
+  })
+  wakePrompter.check()
   registerSupplementHandlers(db, activeScheduler.refresh)
   registerPrescriptionHandlers(db, activeScheduler.refresh)
   registerSearchHandlers()
@@ -109,13 +124,48 @@ function showMainWindow(): void {
 function createTray(): void {
   tray = new Tray(createPillIcon())
   tray.setToolTip('PillMate — 복용 알람')
+  updateTrayMenu()
+  tray.on('click', showMainWindow)
+}
+
+/** 마지막으로 만든 트레이 메뉴의 생활 기록 표시 (바뀔 때만 다시 만든다) */
+let lastTrayEvents = ''
+
+/** 트레이 메뉴: 열기 / 생활 기록 버튼('클릭 기록' 모드인 것만) / 테스트 알람 / 종료 */
+function updateTrayMenu(): void {
+  if (!tray || !db) return
+  const activeDb = db
+  const settings = getSettings(activeDb)
+  const events = getTodayView(activeDb).events
+  const clickEvents = LIFE_EVENTS.filter((e) => settings.eventModes[e] === 'click')
+
+  const record = (event: LifeEvent) => {
+    // 메뉴를 만든 뒤 날짜가 바뀌었을 수 있으니 누른 순간의 복용일로 기록
+    recordLifeEvent(activeDb, planDateFor(new Date(), getSettings(activeDb)), event)
+    scheduler?.refresh()
+    mainWindow?.webContents.send('today:changed')
+  }
+  const eventItems: MenuItemConstructorOptions[] = clickEvents.map((event) => {
+    const at = events[event]
+    return at
+      ? { label: `${LIFE_EVENT_LABELS[event]}   ✓ ${clockOf(at)}`, enabled: false }
+      : { label: LIFE_EVENT_LABELS[event], click: () => record(event) }
+  })
+
+  const signature = JSON.stringify(eventItems.map((i) => i.label))
+  if (signature === lastTrayEvents) return
+  lastTrayEvents = signature
+
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '열기', click: showMainWindow },
+      { type: 'separator' },
+      ...(eventItems.length > 0
+        ? [{ label: '생활 기록 (지금)', enabled: false }, ...eventItems, { type: 'separator' as const }]
+        : []),
       { label: '테스트 알람 울리기', click: () => scheduler?.testAlarm() },
       { type: 'separator' },
       { label: '종료', click: () => app.quit() }
     ])
   )
-  tray.on('click', showMainWindow)
 }

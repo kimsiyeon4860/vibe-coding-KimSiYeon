@@ -13,7 +13,8 @@ export default defineConfig({
         // 화면이 두 개: 메인 창(index)과 알람 팝업(alarm)
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-          alarm: resolve(__dirname, 'src/renderer/alarm.html')
+          alarm: resolve(__dirname, 'src/renderer/alarm.html'),
+          wake: resolve(__dirname, 'src/renderer/wake.html')
         }
       }
     }

@@ -5,8 +5,13 @@
 import { TZDate } from '@date-fns/tz'
 import { addMinutes, format, subDays } from 'date-fns'
 import {
+  LIFE_EVENTS,
+  SLOT_EVENT,
   SLOTS,
   type CheckAction,
+  type DayEvents,
+  type EventMode,
+  type LifeEvent,
   type DayPlanEntry,
   type Hm,
   type IntakeLog,
@@ -33,7 +38,9 @@ export const DEFAULT_SETTINGS: Settings = {
   snoozeMinutes: 10,
   repeatIntervalMinutes: 5,
   repeatMaxCount: 6,
-  autoLaunch: true
+  autoLaunch: true,
+  eventModes: { wake: 'click', breakfast: 'click', lunch: 'click', dinner: 'click', bed: 'click' },
+  eventFallbackMinutes: 60
 }
 
 // ---------------------------------------------------------------- 시간 문자열
@@ -100,6 +107,17 @@ export function clockOf(iso: string): Hm {
   return format(new TZDate(new Date(iso).getTime(), TIME_ZONE), 'HH:mm')
 }
 
+/**
+ * 그날 기상 기록을 물어봐도 되는 시각인지: 평소 기상 시간 N분 전부터 (복용일 경계 기준).
+ * 밤늦게까지 깨어 있는 사람에게 새벽에 '일어나셨나요?'를 묻지 않으려는 것.
+ */
+export function isWakePromptTime(now: Date, settings: Settings, leadMinutes = 180): boolean {
+  const boundary = dayBoundary(settings)
+  const local = new TZDate(now.getTime(), TIME_ZONE)
+  const rel = (minutes: number) => (minutes - boundary + DAY_MINUTES) % DAY_MINUTES
+  return rel(local.getHours() * 60 + local.getMinutes()) >= rel(minutesOf(settings.wakeTime)) - leadMinutes
+}
+
 export function isPlanDate(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
@@ -148,15 +166,52 @@ function isOnPlanDate(source: ScheduleSource, planDate: string): boolean {
   return true
 }
 
+/** 일시(ms)를 한국 시간 ISO(+09:00)로 — 정렬을 위해 모든 예정 일시를 같은 형식으로 */
+function toSeoulIso(ms: number): string {
+  return new TZDate(ms, TIME_ZONE).toISOString()
+}
+
+/**
+ * 항목의 실제 알람 일시. '클릭 기록' 모드의 사건에 묶인 슬롯은:
+ * - 기록이 있으면 기록 시각 + (식사면 식후 N분, 처방약이면 처방의 식후 N분, 기상·취침은 바로)
+ * - 기록이 없으면 평소 시간 + 대기 시간(eventFallbackMinutes)에 알리고, 그동안 '기록 대기'
+ * 고정 시간을 유지하는 경우: 영양제별 직접 지정 시간, 처방약 식전 N분(식사 시작을 미리 알 수 없음), '고정 시간' 모드.
+ */
+function resolveTiming(
+  source: ScheduleSource,
+  plannedTime: Hm,
+  planDate: string,
+  settings: Settings,
+  events: DayEvents
+): { time: Hm; scheduledAt: string; waitingFor: LifeEvent | null } {
+  const planned = { time: plannedTime, scheduledAt: scheduledAtFor(planDate, plannedTime, settings), waitingFor: null }
+  if (source.customTime !== null) return planned
+  const event = SLOT_EVENT[source.slot]
+  if (settings.eventModes[event] !== 'click') return planned
+  const isMeal = MEAL_FIELDS[source.slot] !== undefined
+  if (isMeal && source.mealOffset !== null && source.mealOffset < 0) return planned
+
+  const recorded = events[event]
+  if (recorded) {
+    const offset = isMeal ? (source.mealOffset ?? settings.afterMealMinutes) : 0
+    const scheduledAt = toSeoulIso(Date.parse(recorded) + offset * MINUTE_MS)
+    return { time: clockOf(scheduledAt), scheduledAt, waitingFor: null }
+  }
+  const fallback = Date.parse(planned.scheduledAt) + settings.eventFallbackMinutes * MINUTE_MS
+  return { time: plannedTime, scheduledAt: toSeoulIso(fallback), waitingFor: event }
+}
+
 /**
  * 복용일 하루의 복용 목록을 시간순으로 만들고, 기록을 보고 상태를 붙인다.
  * @param logs 그 복용일의 기록 (오래된 것부터). 같은 항목은 마지막 먹음/건너뜀이 상태가 된다
+ * @param events 그 복용일의 생활 기록 ('클릭 기록' 모드에서 알람 시각의 기준)
  */
 export function buildDayPlan(
   planDate: string,
   settings: Settings,
   sources: ScheduleSource[],
-  logs: IntakeLog[]
+  logs: IntakeLog[],
+  events: DayEvents = {}
 ): DayPlanEntry[] {
   const slotTimes = computeSlotTimes(settings)
   const key = (productId: number, slot: Slot) => `${productId}:${slot}`
@@ -171,9 +226,10 @@ export function buildDayPlan(
   const entries: DayPlanEntry[] = sources
     .filter((s) => isOnPlanDate(s, planDate))
     .map((s) => {
-      const time =
+      const plannedTime =
         s.customTime ??
         (s.mealOffset === null ? slotTimes[s.slot] : prescriptionSlotTime(s.slot, s.mealOffset, settings))
+      const { time, scheduledAt, waitingFor } = resolveTiming(s, plannedTime, planDate, settings, events)
       const final = finalLogs.get(key(s.productId, s.slot))
       const snooze = lastSnoozes.get(key(s.productId, s.slot))
       return {
@@ -183,7 +239,8 @@ export function buildDayPlan(
         slot: s.slot,
         dose: s.dose,
         time,
-        scheduledAt: scheduledAtFor(planDate, time, settings),
+        scheduledAt,
+        waitingFor,
         status: final ? (final.action as CheckAction) : 'pending',
         actedAt: final?.actedAt ?? null,
         snoozedUntil: snooze
@@ -232,6 +289,16 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
   const repeatMaxCount = parseInteger(input.repeatMaxCount, '재알림 최대 횟수', 0, 20, '회', errors)
   if (typeof input.alarmSound !== 'boolean') errors.push('알람 소리 설정이 올바르지 않습니다')
   if (typeof input.autoLaunch !== 'boolean') errors.push('자동 실행 설정이 올바르지 않습니다')
+  const eventFallbackMinutes = parseInteger(input.eventFallbackMinutes, '기록이 없을 때 알림', 15, 240, '분', errors)
+  const eventModes = {} as Record<LifeEvent, EventMode>
+  const rawModes = (typeof input.eventModes === 'object' && input.eventModes !== null ? input.eventModes : {}) as Record<
+    string,
+    unknown
+  >
+  for (const event of LIFE_EVENTS) eventModes[event] = rawModes[event] === 'fixed' ? 'fixed' : 'click'
+  if (!LIFE_EVENTS.every((e) => rawModes[e] === 'fixed' || rawModes[e] === 'click')) {
+    errors.push('생활 기록 방식 설정이 올바르지 않습니다')
+  }
 
   // 기상 → 아침 → 점심 → 저녁 → 취침 순서인지 (취침은 자정을 넘어도 된다)
   if (errors.length === 0) {
@@ -270,7 +337,9 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
       snoozeMinutes,
       repeatIntervalMinutes,
       repeatMaxCount,
-      autoLaunch: input.autoLaunch as boolean
+      autoLaunch: input.autoLaunch as boolean,
+      eventModes,
+      eventFallbackMinutes
     }
   }
 }
