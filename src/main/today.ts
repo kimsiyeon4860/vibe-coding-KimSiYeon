@@ -1,8 +1,10 @@
 // 오늘 복용 목록 만들기·기록하기. 3-2단계 알람 스케줄러도 여기를 쓴다.
 import type { DatabaseSync } from 'node:sqlite'
+import { addDays, format, parseISO } from 'date-fns'
 import { buildDayPlan, planDateFor } from '../shared/schedule'
+import { buildStats, summarizeDay, type StatsView } from '../shared/stats'
 import type { AlarmAction, DayPlanEntry, Slot, TodayView } from '../shared/types'
-import { addIntakeLog, listIntakeLogs, undoIntake } from './db/intakeLogs'
+import { addIntakeLog, listFinalOutcomes, listIntakeLogs, undoIntake } from './db/intakeLogs'
 import { getSettings } from './db/settings'
 import { listScheduleSources } from './db/scheduleItems'
 
@@ -43,4 +45,18 @@ export function recordCheck(
 
 export function undoCheck(db: DatabaseSync, planDate: string, productId: number, slot: Slot): void {
   undoIntake(db, planDate, productId, slot)
+}
+
+/** 연속 완료일은 기간과 상관없이 최근 이만큼까지 거슬러 올라가 센다 */
+const STREAK_LOOKBACK_DAYS = 90
+
+/** 최근 N 복용일(오늘 포함)의 통계 */
+export function getStatsView(db: DatabaseSync, days: number, now: Date = new Date()): StatsView {
+  const today = planDateFor(now, getSettings(db))
+  const summarize = (back: number) => {
+    const planDate = format(addDays(parseISO(today), -back), 'yyyy-MM-dd')
+    return { planDate, ...summarizeDay(planDate, getDayPlan(db, planDate), listFinalOutcomes(db, planDate), now) }
+  }
+  const range = Array.from({ length: Math.max(days, STREAK_LOOKBACK_DAYS) }, (_, i) => summarize(i)).reverse()
+  return buildStats(range.slice(-days), range)
 }

@@ -4,7 +4,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { isPlanDate, parseSettings } from '../shared/schedule'
 import { SLOTS, type CheckAction, type ParseResult, type Settings, type Slot } from '../shared/types'
 import { getSettings, saveSettings } from './db/settings'
-import { getTodayView, recordCheck, undoCheck } from './today'
+import { getStatsView, getTodayView, recordCheck, undoCheck } from './today'
 
 /** @param onChanged 설정·기록이 바뀌면 호출 (알람 다시 확인용) */
 export function registerScheduleHandlers(db: DatabaseSync, onChanged: () => void): void {
@@ -20,6 +20,8 @@ export function registerScheduleHandlers(db: DatabaseSync, onChanged: () => void
   })
 
   ipcMain.handle('today:get', () => getTodayView(db))
+
+  ipcMain.handle('stats:get', (_event, days: unknown) => getStatsView(db, days === 30 ? 30 : 7))
 
   ipcMain.handle('today:check', (_event, planDate: unknown, productId: unknown, slot: unknown, action: unknown) => {
     if (isPlanDate(planDate) && isId(productId) && isSlot(slot) && isCheckAction(action)) {

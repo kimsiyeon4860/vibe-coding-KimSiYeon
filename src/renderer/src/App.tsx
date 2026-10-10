@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import HistoryPage from './pages/HistoryPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
 import SettingsPage from './pages/SettingsPage'
 import SupplementsPage from './pages/SupplementsPage'
@@ -8,6 +9,7 @@ const TABS = [
   { key: 'today', label: '오늘 복용' },
   { key: 'supplements', label: '영양제' },
   { key: 'prescriptions', label: '처방약' },
+  { key: 'history', label: '기록' },
   { key: 'settings', label: '설정' }
 ] as const
 
@@ -42,6 +44,7 @@ export default function App() {
         {tab === 'today' && <TodayPage />}
         {tab === 'supplements' && <SupplementsPage />}
         {tab === 'prescriptions' && <PrescriptionsPage />}
+        {tab === 'history' && <HistoryPage />}
         {tab === 'settings' && <SettingsPage />}
       </main>
     </div>

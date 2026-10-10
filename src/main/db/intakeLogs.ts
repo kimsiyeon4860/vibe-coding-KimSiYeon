@@ -1,6 +1,7 @@
 // 복용 기록 저장·조회
 import type { DatabaseSync } from 'node:sqlite'
-import type { IntakeLog, Slot } from '../../shared/types'
+import type { LoggedOutcome } from '../../shared/stats'
+import type { IntakeLog, ProductKind, Slot } from '../../shared/types'
 
 export interface NewIntakeLog extends IntakeLog {
   planDate: string
@@ -15,6 +16,21 @@ export function listIntakeLogs(db: DatabaseSync, planDate: string): IntakeLog[] 
        FROM intake_logs WHERE plan_date = ? ORDER BY id`
     )
     .all(planDate) as unknown as IntakeLog[]
+}
+
+/** 그 복용일에 먹음/건너뜀으로 끝난 항목 (같은 항목은 마지막 기록), 제품 이름·종류 포함 — 통계용 */
+export function listFinalOutcomes(db: DatabaseSync, planDate: string): LoggedOutcome[] {
+  const rows = db
+    .prepare(
+      `SELECT l.product_id AS productId, p.name AS productName, p.type AS kind, l.slot, l.action
+       FROM intake_logs l JOIN products p ON p.id = l.product_id
+       WHERE l.plan_date = ? AND l.action IN ('taken', 'skipped')
+       ORDER BY l.id`
+    )
+    .all(planDate) as unknown as (LoggedOutcome & { kind: ProductKind })[]
+  const last = new Map<string, LoggedOutcome>()
+  for (const row of rows) last.set(`${row.productId}:${row.slot}`, { ...row })
+  return [...last.values()]
 }
 
 export function addIntakeLog(db: DatabaseSync, log: NewIntakeLog): void {

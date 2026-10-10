@@ -1,5 +1,6 @@
 // 메인 프로세스·preload·화면이 함께 쓰는 타입
 import type { SupplementSearchResult } from './publicData'
+import type { StatsView } from './stats'
 
 /** 알람 팝업에 표시할 복용 항목 하나 */
 export interface AlarmItem {
@@ -292,6 +293,10 @@ export interface PillMateApi {
     undo: (planDate: string, productId: number, slot: Slot) => Promise<TodayView>
     /** 알람 팝업 응답 등으로 오늘 기록이 바뀌면 호출됨. 반환값은 구독 해제 함수 */
     onChanged: (callback: () => void) => () => void
+  }
+  stats: {
+    /** 최근 7일 또는 30일 복용 통계 */
+    get: (days: 7 | 30) => Promise<StatsView>
   }
   /** 테스트 알람 울리기 */
   testAlarm: () => void

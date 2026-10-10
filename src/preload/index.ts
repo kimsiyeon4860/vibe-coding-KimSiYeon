@@ -44,6 +44,10 @@ const api: PillMateApi = {
     onChanged: (callback) => subscribe('today:changed', callback)
   },
 
+  stats: {
+    get: (days) => ipcRenderer.invoke('stats:get', days)
+  },
+
   testAlarm: () => ipcRenderer.send('alarm:test'),
 
   alarm: {
