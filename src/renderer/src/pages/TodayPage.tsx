@@ -39,9 +39,12 @@ export default function TodayPage() {
     const timer = setInterval(() => void reload(), 60_000)
     const onFocus = () => void reload()
     window.addEventListener('focus', onFocus)
+    // 알람 팝업에서 응답하면 바로 반영
+    const offChanged = window.api.today.onChanged(() => void reload())
     return () => {
       clearInterval(timer)
       window.removeEventListener('focus', onFocus)
+      offChanged()
     }
   }, [reload])
 
@@ -88,6 +91,7 @@ export default function TodayPage() {
                     key={`${e.productId}-${e.slot}`}
                     entry={e}
                     overdue={e.status === 'pending' && Date.parse(e.scheduledAt) < now}
+                    snoozed={e.status === 'pending' && e.snoozedUntil !== null && Date.parse(e.snoozedUntil) > now}
                     onCheck={(action) => void check(e, action)}
                     onUndo={() => void undo(e)}
                   />
@@ -104,11 +108,13 @@ export default function TodayPage() {
 interface EntryRowProps {
   entry: DayPlanEntry
   overdue: boolean
+  /** 알람에서 'N분 뒤 다시'를 눌러 기다리는 중 */
+  snoozed: boolean
   onCheck: (action: CheckAction) => void
   onUndo: () => void
 }
 
-function EntryRow({ entry, overdue, onCheck, onUndo }: EntryRowProps) {
+function EntryRow({ entry, overdue, snoozed, onCheck, onUndo }: EntryRowProps) {
   const bg =
     entry.status === 'taken'
       ? 'border-green-200 bg-green-50'
@@ -125,7 +131,11 @@ function EntryRow({ entry, overdue, onCheck, onUndo }: EntryRowProps) {
           {entry.productName}
         </span>
         {entry.dose && <span className="ml-2 text-sm text-slate-500">{entry.dose}</span>}
-        {overdue && <span className="ml-2 text-xs font-medium text-amber-700">시간 지남</span>}
+        {snoozed && entry.snoozedUntil ? (
+          <span className="ml-2 text-xs font-medium text-indigo-600">{clockOf(entry.snoozedUntil)}에 다시 알림</span>
+        ) : (
+          overdue && <span className="ml-2 text-xs font-medium text-amber-700">시간 지남</span>
+        )}
       </div>
 
       {entry.status === 'pending' ? (

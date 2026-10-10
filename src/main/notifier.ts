@@ -1,43 +1,76 @@
+// 알람 표시: Windows 토스트 + 항상 위 팝업 창 + 알림음. 무엇을 언제 띄울지는 scheduler.ts가 정한다.
 import { BrowserWindow, ipcMain, Notification, screen } from 'electron'
-import { ALARM_ACTIONS, type AlarmAction, type AlarmItem } from '../shared/types'
+import { ALARM_ACTIONS, type AlarmAction, type AlarmItem, type AlarmState } from '../shared/types'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { createPillIcon } from './trayIcon'
 
 const POPUP_WIDTH = 420
-const POPUP_HEIGHT = 380
+const POPUP_HEIGHT = 400
+
+/** 팝업 버튼을 눌렀을 때 호출된다 (팝업에 있던 모든 항목에 적용) */
+export type AlarmResponder = (action: AlarmAction, items: AlarmItem[]) => void
 
 let alarmWindow: BrowserWindow | null = null
-let currentItems: AlarmItem[] = []
+let state: AlarmState = { items: [], snoozeMinutes: 10 }
+/** 팝업 화면(React)이 이벤트를 받을 준비가 됐는지 */
+let popupReady = false
+/** 팝업이 준비되기 전에 울린 소리 → 준비되면 재생 */
+let pendingSound = false
+let responder: AlarmResponder = () => {}
 
-/**
- * 알람을 울린다. 세 가지를 동시에 실행:
- *  1. Windows 토스트 알림
- *  2. 모든 창 위에 떠 있는 알람 팝업 창 (방해 금지 모드에서도 보임)
- *  3. 알림음 (팝업 화면이 열리면서 재생)
- */
-export function showAlarm(items: AlarmItem[]): void {
-  currentItems = items
-  showToast(items)
-  showPopup(items)
+export function setAlarmResponder(fn: AlarmResponder): void {
+  responder = fn
 }
 
-/** 팝업 창의 요청(항목 조회·버튼 응답)을 처리하도록 등록. 앱 시작 시 한 번 호출 */
+/**
+ * 팝업 내용을 바꾼다. 항목이 없으면 팝업을 닫는다.
+ * @param ring false면 내용만 조용히 바꾼다. 객체면 '울린다': 토스트 + 팝업을 맨 앞으로 + (sound면) 알림음
+ */
+export function presentAlarm(next: AlarmState, ring: false | { sound: boolean }): void {
+  if (next.items.length === 0) {
+    closePopup()
+    return
+  }
+  state = next
+
+  const isOpen = alarmWindow !== null && !alarmWindow.isDestroyed()
+  if (isOpen) alarmWindow?.webContents.send('alarm:state', state)
+  else createPopup() // 새 창은 화면이 그려지면(ready-to-show) 스스로 맨 앞으로 온다
+
+  if (ring) {
+    showToast(state.items)
+    if (isOpen) bringToFront(alarmWindow)
+    if (ring.sound) playSound()
+  }
+}
+
+/** 팝업 창의 요청을 처리하도록 등록. 앱 시작 시 한 번 호출 */
 export function registerAlarmHandlers(): void {
-  ipcMain.handle('alarm:get-items', () => currentItems)
+  ipcMain.handle('alarm:ready', () => {
+    popupReady = true
+    const ringNow = pendingSound
+    pendingSound = false
+    return { ...state, ringNow }
+  })
 
   ipcMain.on('alarm:respond', (_event, action: unknown) => {
     if (!ALARM_ACTIONS.includes(action as AlarmAction)) return
-    // TODO(3단계): 복용 기록 저장, 스누즈 처리
-    console.log(`[알람 응답] ${String(action)}:`, currentItems.map((i) => i.name).join(', '))
+    const items = state.items
     closePopup()
+    responder(action as AlarmAction, items)
   })
+}
+
+function playSound(): void {
+  if (alarmWindow && popupReady) alarmWindow.webContents.send('alarm:ring')
+  else pendingSound = true
 }
 
 function showToast(items: AlarmItem[]): void {
   if (!Notification.isSupported()) return
   const toast = new Notification({
     title: '💊 복용 시간이에요',
-    body: items.map((i) => `${i.time} ${i.name}`).join('\n'),
+    body: items.map((i) => `${i.time} ${i.productName}`).join('\n'),
     icon: createPillIcon(),
     silent: true // 소리는 팝업에서 낸다
   })
@@ -45,19 +78,12 @@ function showToast(items: AlarmItem[]): void {
   toast.show()
 }
 
-function showPopup(items: AlarmItem[]): void {
-  // 이미 떠 있으면 내용만 바꾸고 다시 앞으로
-  if (alarmWindow && !alarmWindow.isDestroyed()) {
-    alarmWindow.webContents.send('alarm:items', items)
-    bringToFront(alarmWindow)
-    return
-  }
-
+function createPopup(): void {
   // 마우스가 있는 모니터(=사용자가 보고 있는 화면) 가운데에 띄운다
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const { x, y, width, height } = display.workArea
 
-  alarmWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: POPUP_WIDTH,
     height: POPUP_HEIGHT,
     x: Math.round(x + (width - POPUP_WIDTH) / 2),
@@ -79,18 +105,24 @@ function showPopup(items: AlarmItem[]): void {
     }
   })
   // 'screen-saver' 단계: 일반 '항상 위' 창보다도 위에 표시
-  alarmWindow.setAlwaysOnTop(true, 'screen-saver')
+  win.setAlwaysOnTop(true, 'screen-saver')
 
-  alarmWindow.once('ready-to-show', () => bringToFront(alarmWindow))
-  alarmWindow.on('closed', () => {
-    alarmWindow = null
+  win.once('ready-to-show', () => bringToFront(win))
+  win.on('closed', () => {
+    if (alarmWindow === win) {
+      alarmWindow = null
+      popupReady = false
+      pendingSound = false
+    }
   })
-  loadPage(alarmWindow, 'alarm')
+  alarmWindow = win
+  popupReady = false
+  loadPage(win, 'alarm')
 }
 
 function closePopup(): void {
+  state = { ...state, items: [] }
   if (alarmWindow && !alarmWindow.isDestroyed()) alarmWindow.close()
-  currentItems = []
 }
 
 function bringToFront(win: BrowserWindow | null): void {

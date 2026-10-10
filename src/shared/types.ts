@@ -2,14 +2,29 @@
 
 /** 알람 팝업에 표시할 복용 항목 하나 */
 export interface AlarmItem {
-  id: string
-  name: string
+  /** 항목 구분용 "복용일|제품id|슬롯" (테스트 알람은 "test") */
+  key: string
+  planDate: string
+  productId: number
+  slot: Slot
+  productName: string
+  dose: string
   /** 예정 시각 "HH:mm" */
   time: string
-  note?: string
+  /** 예정 일시 (ISO 8601) — "N분 지남" 계산용 */
+  scheduledAt: string
+  /** 설정의 '테스트 알람'으로 띄운 가짜 항목 */
+  test?: boolean
 }
 
-/** 알람 팝업 버튼: 먹었어요 / 10분 뒤 다시 / 건너뛰기 */
+/** 알람 팝업 화면 상태 */
+export interface AlarmState {
+  items: AlarmItem[]
+  /** "N분 뒤 다시" 버튼의 N */
+  snoozeMinutes: number
+}
+
+/** 알람 팝업 버튼: 먹었어요 / N분 뒤 다시 / 건너뛰기 */
 export type AlarmAction = 'taken' | 'snoozed' | 'skipped'
 
 export const ALARM_ACTIONS: readonly AlarmAction[] = ['taken', 'snoozed', 'skipped']
@@ -47,6 +62,14 @@ export interface Settings {
   beforeBedMinutes: number
   /** 계산 대신 직접 정한 슬롯 시간 */
   slotOverrides: Partial<Record<Slot, Hm>>
+  /** 알람 소리 */
+  alarmSound: boolean
+  /** "N분 뒤 다시"의 N */
+  snoozeMinutes: number
+  /** 응답이 없을 때 다시 알리는 간격(분) */
+  repeatIntervalMinutes: number
+  /** 첫 알림 뒤 다시 알리는 최대 횟수. 넘으면 소리 없이 팝업만 남는다 */
+  repeatMaxCount: number
 }
 
 // ---------------------------------------------------------------- 영양제
@@ -151,6 +174,8 @@ export interface DayPlanEntry {
   status: EntryStatus
   /** 먹음/건너뜀으로 표시한 시각 (ISO 8601) */
   actedAt: string | null
+  /** 마지막 스누즈가 끝나는 일시 (ISO 8601). 스누즈한 적 없으면 null */
+  snoozedUntil: string | null
 }
 
 /** 오늘 화면 데이터 */
@@ -180,13 +205,22 @@ export interface PillMateApi {
     /** planDate는 화면에 표시 중인 복용일 (자정 직후 눌러도 엉뚱한 날에 기록되지 않도록) */
     check: (planDate: string, productId: number, slot: Slot, action: CheckAction) => Promise<TodayView>
     undo: (planDate: string, productId: number, slot: Slot) => Promise<TodayView>
+    /** 알람 팝업 응답 등으로 오늘 기록이 바뀌면 호출됨. 반환값은 구독 해제 함수 */
+    onChanged: (callback: () => void) => () => void
   }
   /** 테스트 알람 울리기 */
   testAlarm: () => void
-  /** 알람 팝업이 처음 열릴 때 표시할 항목 가져오기 */
-  getAlarmItems: () => Promise<AlarmItem[]>
-  /** 팝업이 열려 있는 동안 항목이 바뀌면 호출됨. 반환값은 구독 해제 함수 */
-  onAlarmItems: (callback: (items: AlarmItem[]) => void) => () => void
-  /** 팝업 버튼 응답 보내기 */
-  respondAlarm: (action: AlarmAction) => void
+  alarm: {
+    /**
+     * 팝업이 준비되면 호출: 현재 상태를 받고, 열리기 전에 울린 알람이 있으면 ringNow가 true.
+     * onState·onRing 구독을 먼저 한 뒤 부를 것.
+     */
+    ready: () => Promise<AlarmState & { ringNow: boolean }>
+    /** 팝업이 떠 있는 동안 항목이 바뀌면 호출됨 */
+    onState: (callback: (state: AlarmState) => void) => () => void
+    /** 알림음을 낼 때 호출됨 */
+    onRing: (callback: () => void) => () => void
+    /** 팝업 버튼 응답 (팝업의 모든 항목에 적용) */
+    respond: (action: AlarmAction) => void
+  }
 }

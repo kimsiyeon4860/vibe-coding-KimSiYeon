@@ -9,9 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 0. 현재 저장소 상태 (2026-10-10 기준)
 
-- 로드맵 **1단계 완료**: Electron 세팅, 트레이 상주, 테스트 알람(토스트 + 항상 위 팝업 + 소리). 팝업 버튼 응답은 아직 콘솔 로그만 남긴다(`notifier.ts`의 TODO, 3단계에서 기록·스누즈 구현).
+- 로드맵 **1단계 완료**: Electron 세팅, 트레이 상주, 테스트 알람(토스트 + 항상 위 팝업 + 소리).
 - 로드맵 **2단계 완료**: 영양제 수동 입력(추가·수정·사용 중지·삭제) + SQLite 저장.
-- 로드맵 3단계는 둘로 나눴다. **3-1 완료**: 생활 시간 설정 → 슬롯 시간 계산, 영양제별 복용 시점, '오늘 복용' 탭에서 직접 체크·되돌리기. **다음은 3-2**: 30초 간격 스케줄러로 자동 알람, 스누즈·재알림, 절전 복귀 시 놓친 알람 (`src/main/today.ts`의 `getDayPlan`/`recordCheck`를 그대로 쓴다).
+- 로드맵 3단계는 둘로 나눴다. **3-1 완료**: 생활 시간 설정 → 슬롯 시간 계산, 영양제별 복용 시점, '오늘 복용' 탭에서 직접 체크·되돌리기. **3-2 완료**: 자동 알람 스케줄러, 스누즈·재알림, 절전 복귀 시 놓친 알람. **다음은 4단계(처방약 탭).**
 - 영양제 삭제는 하드 삭제이며 복용 기록도 CASCADE로 함께 지워진다 (사용자 결정). 확인 창에서 기록을 남기려면 '사용 중지'를 쓰라고 안내한다.
 - **Vite는 7에 고정**: electron-vite 5가 Vite 8을 지원하지 않는다. 같은 이유로 `@vitejs/plugin-react`는 5.x를 쓴다. 함부로 올리지 말 것.
 - Electron 44는 `npm install` 때가 아니라 처음 실행할 때 실행 파일을 내려받는다 (`node_modules/electron/dist`).
@@ -79,6 +79,7 @@ npx vitest run -t "테스트 이름"                 # 이름으로 특정 테�
 - 실제 DB 파일: `%APPDATA%\PillMate\pillmate.db` (`app.getPath('userData')`).
 
 - 개발 중 앱이 이미 트레이에 떠 있으면 `npm run dev`로 새로 띄운 앱은 단일 인스턴스 잠금 때문에 바로 종료된다. 트레이 메뉴 "종료"로 먼저 끈다.
+- 알람을 실제 앱에서 빨리 확인하려면 설정에서 스누즈·재알림 간격을 1분으로 줄이고, 영양제 시간을 1분 뒤로 직접 지정한다. 확인 후 테스트 데이터·설정을 지울 것 (실제 DB는 사용자 데이터).
 - 실행 중인 앱을 자동으로 점검할 때: `npx electron-vite dev --inspect 9229 --remoteDebuggingPort 9333` → 메인 프로세스는 9229, 화면은 9333(`/json/list`)에 CDP로 접속해 `Runtime.evaluate`.
 
 ## 5. 폴더 구조 (목표)
@@ -146,6 +147,14 @@ tests/
 - 모든 응답은 복용 기록으로 저장한다.
 - Windows 토스트 표시를 위해 `app.setAppUserModelId`를 앱 시작 시 설정한다.
 
+### 6-4-1. 알람 구현 구조 (3-2단계)
+- `src/main/scheduler.ts`: 30초 `setInterval` + `powerMonitor`의 `resume`(3초 뒤)·`unlock-screen`, 앱 시작 직후 한 번. 매번 `getTodayView`로 지금 복용일의 목록을 새로 계산한다 (상태를 따로 들고 있지 않음 → 날짜 변경·재시작에 강함). 기록·설정·영양제가 바뀌면 IPC 핸들러가 `scheduler.refresh()`를 부른다.
+- 판단은 `src/shared/alarm.ts` 순수 함수: `dueEntries`(대기 + 시각 지남 + 스누즈 끝남), `decideRing`(새 항목이면 즉시 울리고 횟수 초기화, 같은 항목이면 `repeatIntervalMinutes`마다 최대 `repeatMaxCount`번 더, 그 뒤엔 소리 없이 팝업 유지), `overdueLabel`.
+- 스누즈는 `intake_logs`에 `snoozed`로 기록되고 `buildDayPlan`이 `snoozedUntil`을 계산한다 → 앱을 다시 켜도 이어진다. 재알림 횟수(`RingState`)만 메모리에 있다.
+- 팝업 버튼은 팝업의 **모든 항목에 한 번에** 적용된다 (사용자 결정). 알람은 **지금 복용일 항목만** 띄우고, 지난 복용일의 미응답은 `missed`로 기록하지 않는다 — 7단계 통계에서 '기록 없음 = 놓침'으로 계산 (사용자 결정).
+- `src/main/notifier.ts`는 표시만 한다: `presentAlarm(state, ring)` — `ring`이 false면 내용만 갱신, 객체면 토스트 + 맨 앞으로 + (소리 설정 시) 알림음. 팝업 화면은 `alarm.onState`/`onRing`을 먼저 구독한 뒤 `alarm.ready()`를 불러야 창이 뜨기 전에 울린 소리를 받는다.
+- 테스트 알람은 `key: 'test'`인 가짜 항목으로 같은 경로를 탄다.
+
 ### 6-5. 병원 처방약
 - 영양제와 분리된 "처방약" 탭에서 관리.
 - 입력 항목: 약 이름(예: 감기약), 복용 시점(식전/식후 N분/취침 전 등), 하루 횟수, 시작일, 처방 일수, 메모.
@@ -163,7 +172,7 @@ tests/
 - `schedule_items` — id, product_id, slot, custom_time(nullable), dose, sort_order. `UNIQUE(product_id, slot)`. 영양제 수정 시 통째로 지우고 다시 넣는다.
 - `prescriptions` — product_id, timing_rule(예: `after_meal:30`), times_per_day, start_date, days
 - `intake_logs` — id, **product_id, slot, plan_date**, scheduled_at, action(`taken`|`snoozed`|`skipped`|`missed`), acted_at. 초안의 `schedule_item_id` 대신 제품·슬롯·복용일을 직접 저장해, 복용 시점을 바꿔도 과거 기록이 남는다. 기록은 추가만 하고, 한 항목의 상태는 그날 마지막 `taken`/`skipped`로 정한다(되돌리기 = 그 둘을 삭제, `snoozed`는 남김).
-- `settings` — key/value(JSON) 행. 항목을 추가해도 마이그레이션이 필요 없고, 없는 키는 `DEFAULT_SETTINGS`로 채운다. 3-2단계에서 알람 소리·재알림 간격·횟수를 추가할 예정.
+- `settings` — key/value(JSON) 행. 항목을 추가해도 마이그레이션이 필요 없고, 없는 키는 `DEFAULT_SETTINGS`로 채운다. 알람 관련: `alarmSound`, `snoozeMinutes`(10), `repeatIntervalMinutes`(5), `repeatMaxCount`(6).
 
 DB 스키마를 바꿀 때는 `src/main/db/migrations.ts`의 `MIGRATIONS` 배열 **끝에** 새 SQL을 추가한다 (`PRAGMA user_version`으로 적용 여부를 판단). 이미 있는 항목은 고치지 않고, 기존 데이터를 지우지 않는다. 현재 버전 2: 1=`products`, `ingredients` / 2=`settings`, `schedule_items`, `intake_logs`.
 

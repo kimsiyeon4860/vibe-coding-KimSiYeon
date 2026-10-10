@@ -17,7 +17,7 @@ import {
 
 export const TIME_ZONE = 'Asia/Seoul'
 const DAY_MINUTES = 24 * 60
-const OFFSET_MAX = 180
+const MINUTE_MS = 60_000
 
 export const DEFAULT_SETTINGS: Settings = {
   wakeTime: '07:00',
@@ -27,7 +27,11 @@ export const DEFAULT_SETTINGS: Settings = {
   bedTime: '23:30',
   afterMealMinutes: 15,
   beforeBedMinutes: 30,
-  slotOverrides: {}
+  slotOverrides: {},
+  alarmSound: true,
+  snoozeMinutes: 10,
+  repeatIntervalMinutes: 5,
+  repeatMaxCount: 6
 }
 
 // ---------------------------------------------------------------- 시간 문자열
@@ -124,8 +128,10 @@ export function buildDayPlan(
   const key = (productId: number, slot: Slot) => `${productId}:${slot}`
 
   const finalLogs = new Map<string, IntakeLog>()
+  const lastSnoozes = new Map<string, IntakeLog>()
   for (const log of logs) {
     if (log.action === 'taken' || log.action === 'skipped') finalLogs.set(key(log.productId, log.slot), log)
+    if (log.action === 'snoozed') lastSnoozes.set(key(log.productId, log.slot), log)
   }
 
   const entries: DayPlanEntry[] = sources
@@ -133,6 +139,7 @@ export function buildDayPlan(
     .map((s) => {
       const time = s.customTime ?? slotTimes[s.slot]
       const final = finalLogs.get(key(s.productId, s.slot))
+      const snooze = lastSnoozes.get(key(s.productId, s.slot))
       return {
         productId: s.productId,
         productName: s.productName,
@@ -141,7 +148,10 @@ export function buildDayPlan(
         time,
         scheduledAt: scheduledAtFor(planDate, time, settings),
         status: final ? (final.action as CheckAction) : 'pending',
-        actedAt: final?.actedAt ?? null
+        actedAt: final?.actedAt ?? null,
+        snoozedUntil: snooze
+          ? new Date(Date.parse(snooze.actedAt) + settings.snoozeMinutes * MINUTE_MS).toISOString()
+          : null
       }
     })
 
@@ -177,8 +187,12 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
     times[field] = minutes ?? 0
   }
 
-  const afterMealMinutes = parseOffset(input.afterMealMinutes, '식후 알람 간격', errors)
-  const beforeBedMinutes = parseOffset(input.beforeBedMinutes, '취침 전 알람 간격', errors)
+  const afterMealMinutes = parseInteger(input.afterMealMinutes, '식후 알람', 0, 180, '분', errors)
+  const beforeBedMinutes = parseInteger(input.beforeBedMinutes, '취침 전 알람', 0, 180, '분', errors)
+  const snoozeMinutes = parseInteger(input.snoozeMinutes, '다시 알림(스누즈)', 1, 60, '분', errors)
+  const repeatIntervalMinutes = parseInteger(input.repeatIntervalMinutes, '재알림 간격', 1, 30, '분', errors)
+  const repeatMaxCount = parseInteger(input.repeatMaxCount, '재알림 최대 횟수', 0, 20, '회', errors)
+  if (typeof input.alarmSound !== 'boolean') errors.push('알람 소리 설정이 올바르지 않습니다')
 
   // 기상 → 아침 → 점심 → 저녁 → 취침 순서인지 (취침은 자정을 넘어도 된다)
   if (errors.length === 0) {
@@ -212,16 +226,28 @@ export function parseSettings(raw: unknown): ParseResult<Settings> {
       bedTime: formatHm(times.bedTime),
       afterMealMinutes,
       beforeBedMinutes,
-      slotOverrides
+      slotOverrides,
+      alarmSound: input.alarmSound as boolean,
+      snoozeMinutes,
+      repeatIntervalMinutes,
+      repeatMaxCount
     }
   }
 }
 
-function parseOffset(value: unknown, label: string, errors: string[]): number {
+/** min~max 정수 검사. 화면에서 온 문자열 숫자도 받는다 */
+function parseInteger(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+  unit: string,
+  errors: string[]
+): number {
   const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value
-  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > OFFSET_MAX) {
-    errors.push(`${label}은 0~${OFFSET_MAX}분 사이의 정수로 입력해 주세요`)
-    return 0
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < min || n > max) {
+    errors.push(`${label}: ${min}~${max}${unit} 사이의 정수로 입력해 주세요`)
+    return min
   }
   return n
 }

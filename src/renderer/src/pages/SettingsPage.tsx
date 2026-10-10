@@ -12,6 +12,10 @@ interface SettingsDraft {
   afterMealMinutes: string
   beforeBedMinutes: string
   slotOverrides: Record<Slot, string>
+  alarmSound: boolean
+  snoozeMinutes: string
+  repeatIntervalMinutes: string
+  repeatMaxCount: string
 }
 
 const TIME_FIELDS = [
@@ -29,13 +33,23 @@ function toDraft(s: Settings): SettingsDraft {
     ...s,
     afterMealMinutes: String(s.afterMealMinutes),
     beforeBedMinutes: String(s.beforeBedMinutes),
-    slotOverrides
+    slotOverrides,
+    snoozeMinutes: String(s.snoozeMinutes),
+    repeatIntervalMinutes: String(s.repeatIntervalMinutes),
+    repeatMaxCount: String(s.repeatMaxCount)
   }
 }
 
 function fromDraft(d: SettingsDraft): Settings {
   const num = (v: string) => (v.trim() === '' ? NaN : Number(v))
-  return { ...d, afterMealMinutes: num(d.afterMealMinutes), beforeBedMinutes: num(d.beforeBedMinutes) }
+  return {
+    ...d,
+    afterMealMinutes: num(d.afterMealMinutes),
+    beforeBedMinutes: num(d.beforeBedMinutes),
+    snoozeMinutes: num(d.snoozeMinutes),
+    repeatIntervalMinutes: num(d.repeatIntervalMinutes),
+    repeatMaxCount: num(d.repeatMaxCount)
+  }
 }
 
 // 설정 탭: 생활 시간 → 슬롯 알람 시간, 알람 테스트
@@ -161,6 +175,61 @@ export default function SettingsPage() {
             })}
           </tbody>
         </table>
+
+        <h3 className="mt-6 font-semibold">알람</h3>
+        <div className="mt-2 grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-3 text-sm">
+          <span className="font-medium">알람 소리</span>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={draft.alarmSound}
+              onChange={(e) => update({ alarmSound: e.target.checked })}
+            />
+            알람이 울릴 때 소리 내기
+          </label>
+          <label className="contents">
+            <span className="font-medium">다시 알림 버튼</span>
+            <span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={draft.snoozeMinutes}
+                onChange={(e) => update({ snoozeMinutes: e.target.value })}
+                className={`${inputClass} w-20`}
+              />{' '}
+              분 뒤 다시
+            </span>
+          </label>
+          <label className="contents">
+            <span className="font-medium">응답이 없으면</span>
+            <span>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={draft.repeatIntervalMinutes}
+                onChange={(e) => update({ repeatIntervalMinutes: e.target.value })}
+                aria-label="재알림 간격(분)"
+                className={`${inputClass} w-20`}
+              />{' '}
+              분마다, 최대{' '}
+              <input
+                type="number"
+                min={0}
+                max={20}
+                value={draft.repeatMaxCount}
+                onChange={(e) => update({ repeatMaxCount: e.target.value })}
+                aria-label="재알림 최대 횟수"
+                className={`${inputClass} w-20`}
+              />{' '}
+              번 다시 알림
+            </span>
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          최대 횟수를 넘으면 소리는 멈추지만 알람 창은 응답할 때까지 화면에 남아 있습니다.
+        </p>
 
         {errors.length > 0 && (
           <ul role="alert" className="mt-4 space-y-1 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">

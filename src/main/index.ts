@@ -1,11 +1,11 @@
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
-import type { AlarmItem } from '../shared/types'
 import { openDatabase } from './db/connection'
 import { loadPage, PRELOAD_PATH } from './loadPage'
-import { registerAlarmHandlers, showAlarm } from './notifier'
+import { registerAlarmHandlers } from './notifier'
 import { registerScheduleHandlers } from './scheduleHandlers'
+import { startScheduler, type Scheduler } from './scheduler'
 import { registerSupplementHandlers } from './supplementHandlers'
 import { createPillIcon } from './trayIcon'
 
@@ -15,6 +15,7 @@ const APP_ID = 'com.pillmate.app'
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let db: DatabaseSync | null = null
+let scheduler: Scheduler | null = null
 /** true일 때만 창을 진짜로 닫는다 (트레이 메뉴 "종료") */
 let isQuitting = false
 
@@ -32,14 +33,18 @@ function start(): void {
 
   // DB 파일 위치: %APPDATA%\PillMate\pillmate.db
   db = openDatabase(join(app.getPath('userData'), 'pillmate.db'))
-  registerSupplementHandlers(db)
-  registerScheduleHandlers(db)
-  registerAlarmHandlers()
-  ipcMain.on('alarm:test', triggerTestAlarm)
 
   createTray()
   // Windows 시작 시 자동 실행된 경우(--minimized)에는 트레이에만 둔다
   createMainWindow(!process.argv.includes('--minimized'))
+
+  registerAlarmHandlers()
+  // 알람 응답으로 기록이 바뀌면 열려 있는 오늘 탭을 새로고침
+  const activeScheduler = startScheduler(db, () => mainWindow?.webContents.send('today:changed'))
+  scheduler = activeScheduler
+  registerSupplementHandlers(db, activeScheduler.refresh)
+  registerScheduleHandlers(db, activeScheduler.refresh)
+  ipcMain.on('alarm:test', activeScheduler.testAlarm)
 }
 
 // 창이 모두 닫혀도 앱은 트레이에서 계속 실행 (기본 동작인 '종료'를 막음)
@@ -50,6 +55,7 @@ app.on('before-quit', () => {
 })
 
 app.on('will-quit', () => {
+  scheduler?.stop()
   db?.close()
   db = null
 })
@@ -96,7 +102,7 @@ function createTray(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '열기', click: showMainWindow },
-      { label: '테스트 알람 울리기', click: triggerTestAlarm },
+      { label: '테스트 알람 울리기', click: () => scheduler?.testAlarm() },
       { type: 'separator' },
       { label: '종료', click: () => app.quit() }
     ])
@@ -108,18 +114,4 @@ function createTray(): void {
 function setupAutoLaunch(): void {
   if (!app.isPackaged) return
   app.setLoginItemSettings({ openAtLogin: true, args: ['--minimized'] })
-}
-
-function triggerTestAlarm(): void {
-  const now = new Intl.DateTimeFormat('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Seoul'
-  }).format(new Date())
-
-  const items: AlarmItem[] = [
-    { id: 'test', name: '테스트 알람', time: now, note: '알람이 잘 보이고 들리는지 확인하는 테스트입니다' }
-  ]
-  showAlarm(items)
 }

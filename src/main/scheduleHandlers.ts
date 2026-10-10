@@ -6,12 +6,16 @@ import { SLOTS, type CheckAction, type ParseResult, type Settings, type Slot } f
 import { getSettings, saveSettings } from './db/settings'
 import { getTodayView, recordCheck, undoCheck } from './today'
 
-export function registerScheduleHandlers(db: DatabaseSync): void {
+/** @param onChanged 설정·기록이 바뀌면 호출 (알람 다시 확인용) */
+export function registerScheduleHandlers(db: DatabaseSync, onChanged: () => void): void {
   ipcMain.handle('settings:get', () => getSettings(db))
 
   ipcMain.handle('settings:save', (_event, raw: unknown): ParseResult<Settings> => {
     const parsed = parseSettings(raw)
-    if (parsed.ok) saveSettings(db, parsed.value)
+    if (parsed.ok) {
+      saveSettings(db, parsed.value)
+      onChanged()
+    }
     return parsed
   })
 
@@ -20,12 +24,16 @@ export function registerScheduleHandlers(db: DatabaseSync): void {
   ipcMain.handle('today:check', (_event, planDate: unknown, productId: unknown, slot: unknown, action: unknown) => {
     if (isPlanDate(planDate) && isId(productId) && isSlot(slot) && isCheckAction(action)) {
       recordCheck(db, planDate, productId, slot, action)
+      onChanged()
     }
     return getTodayView(db)
   })
 
   ipcMain.handle('today:undo', (_event, planDate: unknown, productId: unknown, slot: unknown) => {
-    if (isPlanDate(planDate) && isId(productId) && isSlot(slot)) undoCheck(db, planDate, productId, slot)
+    if (isPlanDate(planDate) && isId(productId) && isSlot(slot)) {
+      undoCheck(db, planDate, productId, slot)
+      onChanged()
+    }
     return getTodayView(db)
   })
 }

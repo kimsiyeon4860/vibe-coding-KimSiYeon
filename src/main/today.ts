@@ -1,7 +1,7 @@
 // 오늘 복용 목록 만들기·기록하기. 3-2단계 알람 스케줄러도 여기를 쓴다.
 import type { DatabaseSync } from 'node:sqlite'
 import { buildDayPlan, planDateFor } from '../shared/schedule'
-import type { CheckAction, DayPlanEntry, Slot, TodayView } from '../shared/types'
+import type { AlarmAction, DayPlanEntry, Slot, TodayView } from '../shared/types'
 import { addIntakeLog, listIntakeLogs, undoIntake } from './db/intakeLogs'
 import { getSettings } from './db/settings'
 import { listScheduleSources } from './db/supplements'
@@ -17,13 +17,13 @@ export function getTodayView(db: DatabaseSync, now: Date = new Date()): TodayVie
   return { planDate, entries: getDayPlan(db, planDate) }
 }
 
-/** 먹음/건너뜀 기록. 계획에 없는 항목이면 false */
+/** 먹음/건너뜀/스누즈 기록. 계획에 없는 항목이면 false */
 export function recordCheck(
   db: DatabaseSync,
   planDate: string,
   productId: number,
   slot: Slot,
-  action: CheckAction,
+  action: AlarmAction,
   now: Date = new Date()
 ): boolean {
   const entry = getDayPlan(db, planDate).find((e) => e.productId === productId && e.slot === slot)
