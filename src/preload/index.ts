@@ -16,7 +16,8 @@ const api: PillMateApi = {
     create: (draft) => ipcRenderer.invoke('supplements:create', draft),
     update: (id, draft) => ipcRenderer.invoke('supplements:update', id, draft),
     setActive: (id, active) => ipcRenderer.invoke('supplements:set-active', id, active),
-    remove: (id) => ipcRenderer.invoke('supplements:delete', id)
+    remove: (id) => ipcRenderer.invoke('supplements:delete', id),
+    applySchedule: (changes) => ipcRenderer.invoke('supplements:apply-schedule', changes)
   },
 
   prescriptions: {

@@ -149,6 +149,12 @@ export interface SupplementInput {
 
 export type SaveResult = { ok: true; supplement: Supplement } | { ok: false; errors: string[] }
 
+/** 추천 화면에서 '이대로 적용' 할 때 영양제 하나의 새 복용 시점 */
+export interface ScheduleChange {
+  id: number
+  slots: Slot[]
+}
+
 // ---------------------------------------------------------------- 처방약
 
 /** 처방약 식사 기준: 식전 / 식후 */
@@ -255,6 +261,8 @@ export interface PillMateApi {
     update: (id: number, draft: SupplementDraft) => Promise<SaveResult>
     setActive: (id: number, active: boolean) => Promise<void>
     remove: (id: number) => Promise<void>
+    /** 여러 영양제의 복용 시점을 한 번에 바꾼다 (그대로인 시점은 복용량·직접 지정 시간 유지) */
+    applySchedule: (changes: ScheduleChange[]) => Promise<void>
   }
   prescriptions: {
     list: () => Promise<Prescription[]>

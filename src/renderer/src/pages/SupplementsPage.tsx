@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SLOT_LABELS, type Ingredient, type Supplement } from '../../../shared/types'
+import { findConflicts, placeDoses } from '../../../shared/recommend'
+import { SLOT_LABELS, type Ingredient, type Settings, type Supplement } from '../../../shared/types'
+import RecommendBoard from '../components/RecommendBoard'
 import SupplementForm from '../components/SupplementForm'
 
 /** 입력 창 상태: 닫힘 / 새로 추가 / 수정 */
@@ -8,9 +10,13 @@ type Editing = null | { mode: 'create' } | { mode: 'edit'; supplement: Supplemen
 export default function SupplementsPage() {
   const [supplements, setSupplements] = useState<Supplement[] | null>(null)
   const [editing, setEditing] = useState<Editing>(null)
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [recommending, setRecommending] = useState(false)
 
   const reload = useCallback(async () => {
-    setSupplements(await window.api.supplements.list())
+    const [list, s] = await Promise.all([window.api.supplements.list(), window.api.settings.get()])
+    setSupplements(list)
+    setSettings(s)
   }, [])
 
   useEffect(() => {
@@ -37,18 +43,65 @@ export default function SupplementsPage() {
     await reload()
   }
 
+  if (recommending && supplements && settings) {
+    return (
+      <RecommendBoard
+        supplements={supplements}
+        settings={settings}
+        onClose={() => setRecommending(false)}
+        onApplied={() => {
+          setRecommending(false)
+          void reload()
+        }}
+      />
+    )
+  }
+
+  // 지금 일정에서 함께 먹으면 안 좋은 조합이 가까이 있는지 (경고만)
+  const conflicts =
+    supplements && settings
+      ? findConflicts(
+          placeDoses(
+            supplements.filter((s) => s.active).map((s) => ({ supplement: s, slots: s.schedule.map((i) => i.slot) })),
+            settings
+          ),
+          settings
+        )
+      : []
+
   return (
     <div className="mx-auto max-w-3xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">영양제 목록</h1>
-        <button
-          type="button"
-          onClick={() => setEditing({ mode: 'create' })}
-          className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
-        >
-          + 영양제 추가
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!supplements?.some((s) => s.active)}
+            onClick={() => setRecommending(true)}
+            className="rounded-lg border border-indigo-300 px-4 py-2 font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+          >
+            복용 시점 추천 받기
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing({ mode: 'create' })}
+            className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
+          >
+            + 영양제 추가
+          </button>
+        </div>
       </div>
+
+      {conflicts.length > 0 && (
+        <ul role="alert" className="mb-4 space-y-1 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {conflicts.map((c) => (
+            <li key={`${c.a.productId}-${c.b.productId}-${c.rule.a}-${c.rule.b}`}>
+              ⚠ <b>{c.a.productName}</b>({c.a.time})과 <b>{c.b.productName}</b>({c.b.time})이 {c.gapMinutes}분 간격입니다.{' '}
+              {c.rule.reason} <span className="text-xs text-red-600">(참고용 · 의사·약사 지시 우선)</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {supplements === null ? null : supplements.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">

@@ -1,6 +1,7 @@
 // 영양제 저장·조회. DB를 인자로 받아 테스트에서 메모리 DB로 검증할 수 있게 한다.
 import type { DatabaseSync } from 'node:sqlite'
-import type { Ingredient, ProductSource, ScheduleItem, Supplement, SupplementInput } from '../../shared/types'
+import { rescheduleItems } from '../../shared/recommend'
+import type { Ingredient, ProductSource, ScheduleChange, ScheduleItem, Supplement, SupplementInput } from '../../shared/types'
 import { loadSchedule, loadSchedules, replaceSchedule } from './scheduleItems'
 import { withTransaction } from './transaction'
 
@@ -109,6 +110,19 @@ export function updateSupplement(
     return true
   })
   return updated ? getSupplement(db, id) : null
+}
+
+/**
+ * 추천 화면의 '이대로 적용': 여러 영양제의 복용 시점을 한 번에 바꾼다 (전부 저장되거나 전부 취소).
+ * 영양제가 아니거나 없는 id는 건너뛴다.
+ */
+export function applyScheduleChanges(db: DatabaseSync, changes: ScheduleChange[], now: Date = new Date()): void {
+  withTransaction(db, () => {
+    for (const change of changes) {
+      if (!getSupplement(db, change.id)) continue
+      replaceSchedule(db, change.id, rescheduleItems(loadSchedule(db, change.id), change.slots), now)
+    }
+  })
 }
 
 export function setSupplementActive(db: DatabaseSync, id: number, active: boolean): void {

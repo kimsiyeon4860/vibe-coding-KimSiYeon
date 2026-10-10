@@ -2,8 +2,9 @@
 import { ipcMain } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { parseSupplementDraft } from '../shared/supplementInput'
-import type { SaveResult } from '../shared/types'
+import { SLOTS, type SaveResult, type ScheduleChange, type Slot } from '../shared/types'
 import {
+  applyScheduleChanges,
   createSupplement,
   deleteSupplement,
   listSupplements,
@@ -41,6 +42,23 @@ export function registerSupplementHandlers(db: DatabaseSync, onChanged: () => vo
     if (isId(id)) deleteSupplement(db, id)
     onChanged()
   })
+
+  ipcMain.handle('supplements:apply-schedule', (_event, changes: unknown) => {
+    if (!Array.isArray(changes) || !changes.every(isScheduleChange)) return
+    applyScheduleChanges(db, changes)
+    onChanged()
+  })
+}
+
+function isScheduleChange(value: unknown): value is ScheduleChange {
+  if (typeof value !== 'object' || value === null) return false
+  const { id, slots } = value as Record<string, unknown>
+  return (
+    isId(id) &&
+    Array.isArray(slots) &&
+    slots.every((s) => SLOTS.includes(s as Slot)) &&
+    new Set(slots).size === slots.length
+  )
 }
 
 function isId(value: unknown): value is number {

@@ -11,7 +11,8 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "resolveJsonModule": true,
     "esModuleInterop": true
   },
-  "include": ["electron.vite.config.ts", "vitest.config.ts", "tests/**/*", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"]
+  "include": ["electron.vite.config.ts", "vitest.config.ts", "tests/**/*", "rules/*.json", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"]
 }

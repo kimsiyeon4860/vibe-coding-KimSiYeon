@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "updated": "2026-10-10",
+  "note": "참고용 일반 정보. 의사·약사의 지시와 제품 라벨이 우선한다. evidence: supported = 공식 건강정보에 근거, limited = 근거가 약하거나 일반적 관행. 규칙을 바꾸면 npm test로 형식을 검사할 것.",
+  "ingredients": [
+    {
+      "id": "vitamin_a",
+      "name": "비타민 A",
+      "aliases": ["비타민A", "vitamin A", "레티놀", "retinol", "베타카로틴", "beta carotene"],
+      "slots": ["breakfast", "dinner", "lunch"],
+      "reason": "지용성이라 지방이 있는 식사와 함께 먹으면 흡수가 잘 됩니다",
+      "evidence": "supported",
+      "sources": [{ "title": "MedlinePlus: Vitamins", "url": "https://medlineplus.gov/ency/article/002399.htm" }]
+    },
+    {
+      "id": "vitamin_d",
+      "name": "비타민 D",
+      "aliases": ["비타민D", "vitamin D", "콜레칼시페롤", "cholecalciferol", "에르고칼시페롤", "ergocalciferol"],
+      "slots": ["breakfast", "dinner", "lunch"],
+      "reason": "지용성이라 지방이 있는 식사와 함께 먹으면 흡수가 잘 됩니다",
+      "evidence": "supported",
+      "sources": [
+        { "title": "MedlinePlus: Vitamins", "url": "https://medlineplus.gov/ency/article/002399.htm" },
+        { "title": "MedlinePlus: Vitamin D", "url": "https://medlineplus.gov/vitamind.html" }
+      ]
+    },
+    {
+      "id": "vitamin_e",
+      "name": "비타민 E",
+      "aliases": ["비타민E", "vitamin E", "토코페롤", "tocopherol"],
+      "slots": ["breakfast", "dinner", "lunch"],
+      "reason": "지용성이라 지방이 있는 식사와 함께 먹으면 흡수가 잘 됩니다",
+      "evidence": "supported",
+      "sources": [{ "title": "MedlinePlus: Vitamins", "url": "https://medlineplus.gov/ency/article/002399.htm" }]
+    },
+    {
+      "id": "vitamin_k",
+      "name": "비타민 K",
+      "aliases": ["비타민K", "vitamin K", "메나퀴논", "menaquinone", "필로퀴논", "phylloquinone"],
+      "slots": ["breakfast", "dinner", "lunch"],
+      "reason": "지용성이라 지방이 있는 식사와 함께 먹으면 흡수가 잘 됩니다",
+      "evidence": "supported",
+      "sources": [{ "title": "MedlinePlus: Vitamins", "url": "https://medlineplus.gov/ency/article/002399.htm" }]
+    },
+    {
+      "id": "omega3",
+      "name": "오메가3",
+      "aliases": ["오메가3", "omega3", "EPA", "DHA", "어유", "fish oil", "크릴오일", "krill oil"],
+      "slots": ["breakfast", "dinner", "lunch"],
+      "reason": "기름 성분이라 식사와 함께 먹는 경우가 많습니다",
+      "evidence": "limited",
+      "sources": []
+    },
+    {
+      "id": "coq10",
+      "name": "코엔자임Q10",
+      "aliases": ["코엔자임Q10", "코큐텐", "CoQ10", "coenzyme Q10", "유비퀴논", "ubiquinone", "유비퀴놀", "ubiquinol"],
+      "slots": ["breakfast", "dinner", "lunch"],
+      "reason": "물에 잘 녹지 않아 지방이 있는 식사와 함께 먹으면 흡수가 나아질 수 있습니다",
+      "evidence": "limited",
+      "sources": [
+        { "title": "Impact of liposomal delivery on coenzyme Q10 absorption (PMC)", "url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12486408/" }
+      ]
+    },
+    {
+      "id": "vitamin_b",
+      "name": "비타민 B군",
+      "aliases": [
+        "비타민B", "vitamin B", "티아민", "thiamine", "thiamin", "리보플라빈", "riboflavin",
+        "나이아신", "niacin", "니코틴산아미드", "판토텐산", "판토텐산칼슘", "pantothenic acid", "calcium pantothenate",
+        "피리독신", "pyridoxine", "비오틴", "biotin", "엽산", "folic acid", "folate",
+        "코발라민", "cobalamin", "시아노코발라민", "메틸코발라민", "벤포티아민"
+      ],
+      "slots": ["breakfast", "lunch"],
+      "reason": "늦게 먹으면 잠에 방해될 수 있다는 의견이 있어 아침을 권합니다 (근거는 약함)",
+      "evidence": "limited",
+      "sources": [
+        { "title": "Effects of vitamin B12 on performance and circadian rhythm (PubMed)", "url": "https://pubmed.ncbi.nlm.nih.gov/8914118/" }
+      ]
+    },
+    {
+      "id": "multivitamin",
+      "name": "종합비타민",
+      "aliases": ["종합비타민", "멀티비타민", "multivitamin"],
+      "slots": ["breakfast", "lunch"],
+      "reason": "지용성 비타민과 B군이 함께 들어 있어 아침 식사와 함께 먹기 좋습니다",
+      "evidence": "limited",
+      "sources": [{ "title": "MedlinePlus: Vitamins", "url": "https://medlineplus.gov/ency/article/002399.htm" }]
+    },
+    {
+      "id": "iron",
+      "name": "철분",
+      "aliases": ["철분", "iron", "헴철", "제일철", "푸마르산제일철", "황산제일철", "ferrous", "ferric"],
+      "slots": ["wake", "breakfast"],
+      "reason": "공복에 흡수가 가장 잘 됩니다. 속이 불편하면 소량의 음식과 함께 드세요",
+      "evidence": "supported",
+      "sources": [{ "title": "MedlinePlus: Taking iron supplements", "url": "https://medlineplus.gov/ency/article/007478.htm" }]
+    },
+    {
+      "id": "calcium",
+      "name": "칼슘",
+      "aliases": ["칼슘", "calcium", "탄산칼슘", "구연산칼슘", "calcium carbonate", "calcium citrate"],
+      "slots": ["dinner", "lunch", "breakfast"],
+      "reason": "탄산칼슘은 음식과 함께 먹을 때 흡수가 잘 됩니다. 철분과는 떨어뜨려 드세요",
+      "evidence": "supported",
+      "sources": [{ "title": "MedlinePlus: Calcium supplements", "url": "https://medlineplus.gov/ency/article/007477.htm" }]
+    },
+    {
+      "id": "magnesium",
+      "name": "마그네슘",
+      "aliases": ["마그네슘", "magnesium", "산화마그네슘", "magnesium oxide"],
+      "slots": ["bedtime", "dinner"],
+      "reason": "저녁이나 자기 전에 많이 먹지만, 시간에 따른 효과 차이는 근거가 충분하지 않습니다",
+      "evidence": "limited",
+      "sources": [
+        { "title": "NCCIH: Magnesium Supplements for Sleep Disorders", "url": "https://www.nccih.nih.gov/health/in-the-news-magnesium-supplements-for-sleep-disorders" }
+      ]
+    },
+    {
+      "id": "zinc",
+      "name": "아연",
+      "aliases": ["아연", "zinc", "산화아연", "글루콘산아연", "zinc oxide", "zinc gluconate"],
+      "slots": ["dinner", "lunch"],
+      "reason": "식사와 함께 먹는 경우가 많습니다. 철분·칼슘과는 떨어뜨려 드세요",
+      "evidence": "limited",
+      "sources": [{ "title": "MedlinePlus: Calcium supplements", "url": "https://medlineplus.gov/ency/article/007477.htm" }]
+    },
+    {
+      "id": "probiotics",
+      "name": "유산균",
+      "aliases": ["유산균", "프로바이오틱스", "probiotic", "probiotics", "락토바실러스", "lactobacillus", "비피도박테리움", "bifidobacterium"],
+      "slots": ["breakfast", "wake"],
+      "reason": "제품마다 먹는 법이 달라 라벨 표기를 따르세요. 라벨이 없으면 우선 아침에 둡니다",
+      "evidence": "limited",
+      "sources": [
+        { "title": "NCCIH: Using Dietary Supplements Wisely", "url": "https://www.nccih.nih.gov/health/using-dietary-supplements-wisely" }
+      ]
+    }
+  ],
+  "ignore": {
+    "note": "성분 이름에 들어 있어도 해당 영양 성분으로 보지 않는 첨가물",
+    "aliases": ["스테아르산마그네슘", "magnesium stearate", "이산화규소"]
+  },
+  "conflicts": [
+    {
+      "a": "iron",
+      "b": "calcium",
+      "minGapMinutes": 120,
+      "reason": "칼슘은 철분 흡수를 방해할 수 있어 2시간 이상 떨어뜨려 드세요",
+      "evidence": "supported",
+      "sources": [{ "title": "MedlinePlus: Taking iron supplements", "url": "https://medlineplus.gov/ency/article/007478.htm" }]
+    },
+    {
+      "a": "iron",
+      "b": "magnesium",
+      "minGapMinutes": 120,
+      "reason": "같이 먹으면 흡수를 서로 방해할 수 있다는 의견이 있어 2시간 이상 떨어뜨리기를 권합니다",
+      "evidence": "limited",
+      "sources": []
+    },
+    {
+      "a": "iron",
+      "b": "zinc",
+      "minGapMinutes": 120,
+      "reason": "같이 먹으면 흡수를 서로 방해할 수 있다는 의견이 있어 2시간 이상 떨어뜨리기를 권합니다",
+      "evidence": "limited",
+      "sources": []
+    }
+  ]
+}
