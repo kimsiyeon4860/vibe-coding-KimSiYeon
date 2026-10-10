@@ -1,13 +1,9 @@
-// 알람 스케줄러: 30초마다 오늘 목록을 확인해 시간이 된 항목을 알람 팝업으로 띄운다.
-// 판단은 shared/alarm.ts의 순수 함수가 하고, 여기서는 타이머·절전 복귀·응답 기록만 맡는다.
+// 데스크톱 알람 스케줄러: 30초 타이머·절전 복귀·잠금 해제 때 core/alarmEngine에 물어보고
+// 결과를 notifier(항상 위 창 + Windows 알림)로 띄운다.
 import { powerMonitor } from 'electron'
-import type { DatabaseSync } from 'node:sqlite'
-import { decideRing, dueEntries, toAlarmItem, type RingState } from '../shared/alarm'
-import { clockOf } from '../shared/schedule'
-import type { AlarmItem } from '../shared/types'
-import { getSettings } from './db/settings'
+import { createAlarmEngine } from '../core/alarmEngine'
+import type { SqlDatabase } from '../core/db/sql'
 import { presentAlarm, setAlarmResponder } from './notifier'
-import { getTodayView, recordCheck } from './today'
 
 const TICK_MS = 30_000
 /** 절전에서 깨어난 직후에는 화면·네트워크가 덜 깨어 있을 수 있어 잠깐 기다린다 */
@@ -23,33 +19,15 @@ export interface Scheduler {
 
 /**
  * @param onRecorded 알람 응답으로 복용 기록이 바뀌었을 때 (오늘 탭 새로고침용)
- * @param onTick 확인할 때마다 함께 할 일 (기상 기록 묻기, 트레이 메뉴 갱신)
+ * @param onTick 확인할 때마다 함께 할 일 (기상·식사 기록 묻기, 트레이 메뉴 갱신)
  */
-export function startScheduler(db: DatabaseSync, onRecorded: () => void, onTick: () => void = () => {}): Scheduler {
-  /** 지금 떠 있는 알람의 울림 상태 (재알림 횟수). 앱을 다시 켜면 처음부터 센다 */
-  let ringState: RingState | null = null
-  let testItem: AlarmItem | null = null
-  let forceRing = false
+export function startScheduler(db: SqlDatabase, onRecorded: () => void, onTick: () => void = () => {}): Scheduler {
+  const engine = createAlarmEngine(db)
 
   const tick = (): void => {
     try {
-      const now = new Date()
-      const settings = getSettings(db)
-      const view = getTodayView(db, now)
-      const items = dueEntries(view.entries, now).map((e) => toAlarmItem(view.planDate, e))
-      if (testItem) items.unshift(testItem)
-
-      const decision = decideRing(
-        ringState,
-        items.map((i) => i.key),
-        now,
-        settings
-      )
-      ringState = decision.state
-      const ring = decision.ring || forceRing
-      forceRing = false
-
-      presentAlarm({ items, snoozeMinutes: settings.snoozeMinutes }, ring ? { sound: settings.alarmSound } : false)
+      const { state, ring } = engine.evaluate()
+      presentAlarm(state, ring)
       onTick()
     } catch (error) {
       // 한 번 실패해도 타이머는 계속 돈다
@@ -57,14 +35,8 @@ export function startScheduler(db: DatabaseSync, onRecorded: () => void, onTick:
     }
   }
 
-  // 팝업 버튼: 팝업에 있던 모든 항목을 기록한다
   setAlarmResponder((action, items) => {
-    const now = new Date()
-    for (const item of items) {
-      if (item.test) testItem = null
-      else recordCheck(db, item.planDate, item.productId, item.slot, action, now)
-    }
-    ringState = null
+    engine.respond(action, items)
     onRecorded()
     tick()
   })
@@ -79,20 +51,7 @@ export function startScheduler(db: DatabaseSync, onRecorded: () => void, onTick:
   return {
     refresh: tick,
     testAlarm: () => {
-      const now = new Date()
-      testItem = {
-        key: 'test',
-        planDate: '',
-        productId: 0,
-        slot: 'wake',
-        productName: '테스트 알람',
-        kind: 'supplement',
-        dose: '알람이 잘 보이고 들리는지 확인하는 테스트입니다',
-        time: clockOf(now.toISOString()),
-        scheduledAt: now.toISOString(),
-        test: true
-      }
-      forceRing = true
+      engine.testAlarm()
       tick()
     },
     stop: () => {

@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from './sql'
 import { withTransaction } from './transaction'
 
 /**
@@ -95,7 +95,7 @@ export const MIGRATIONS: readonly string[] = [
 ]
 
 /** DB의 user_version을 보고 아직 적용되지 않은 마이그레이션만 순서대로 실행한다 */
-export function migrate(db: DatabaseSync): void {
+export function migrate(db: SqlDatabase): void {
   const row = db.prepare('PRAGMA user_version').get() as { user_version: number }
   for (let version = row.user_version; version < MIGRATIONS.length; version++) {
     withTransaction(db, () => {

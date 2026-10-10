@@ -1,9 +1,9 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
-import { MIGRATIONS } from '../src/main/db/migrations'
-import { createSupplement } from '../src/main/db/supplements'
-import { clearLifeEvent, getDayPlan, getStatsView, getTodayView, recordLifeEvent, skipMeal } from '../src/main/today'
+import { MIGRATIONS } from '../src/core/db/migrations'
+import { createSupplement } from '../src/core/db/supplements'
+import { clearLifeEvent, getDayPlan, getStatsView, getTodayView, recordLifeEvent, skipMeal } from '../src/core/today'
 import { dueEntries, mealSkipNote, pendingMealQuestions, toAlarmItem } from '../src/shared/alarm'
 import { buildDayPlan, DEFAULT_SETTINGS, type ScheduleSource } from '../src/shared/schedule'
 
@@ -113,7 +113,7 @@ describe('"드셨어요?" 확인', () => {
 })
 
 describe('DB: 식사 거름', () => {
-  let db: DatabaseSync
+  let db: SqlDatabase
   beforeEach(() => {
     db = openDatabase(':memory:')
   })

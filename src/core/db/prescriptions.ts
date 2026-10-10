@@ -1,6 +1,6 @@
 // 처방약 저장·조회. 약 자체는 products(type='prescription'), 먹는 때는 schedule_items,
 // 처방 정보(식사 기준·기간·메모)는 prescriptions에 저장한다.
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from './sql'
 import type { MealTiming, Prescription, PrescriptionInput, ScheduleItem } from '../../shared/types'
 import { loadSchedule, loadSchedules, replaceSchedule } from './scheduleItems'
 import { withTransaction } from './transaction'
@@ -24,18 +24,18 @@ const SELECT = `
   WHERE p.type = 'prescription'`
 
 /** 처방약 전체 (시작일 최근 것부터) */
-export function listPrescriptions(db: DatabaseSync): Prescription[] {
+export function listPrescriptions(db: SqlDatabase): Prescription[] {
   const rows = db.prepare(`${SELECT} ORDER BY rx.start_date DESC, p.id DESC`).all() as unknown as PrescriptionRow[]
   const scheduleOf = loadSchedules(db, 'prescription')
   return rows.map((r) => toPrescription(r, scheduleOf.get(r.id) ?? []))
 }
 
-export function getPrescription(db: DatabaseSync, id: number): Prescription | null {
+export function getPrescription(db: SqlDatabase, id: number): Prescription | null {
   const row = db.prepare(`${SELECT} AND p.id = ?`).get(id) as unknown as PrescriptionRow | undefined
   return row ? toPrescription(row, loadSchedule(db, id)) : null
 }
 
-export function createPrescription(db: DatabaseSync, input: PrescriptionInput, now: Date = new Date()): Prescription {
+export function createPrescription(db: SqlDatabase, input: PrescriptionInput, now: Date = new Date()): Prescription {
   const id = withTransaction(db, () => {
     const result = db
       .prepare(`INSERT INTO products (type, name, source, active, created_at) VALUES ('prescription', ?, 'manual', 1, ?)`)
@@ -53,7 +53,7 @@ export function createPrescription(db: DatabaseSync, input: PrescriptionInput, n
 
 /** 수정. 없는 id면 null. 복용 기록은 그대로 남는다 */
 export function updatePrescription(
-  db: DatabaseSync,
+  db: SqlDatabase,
   id: number,
   input: PrescriptionInput,
   now: Date = new Date()
@@ -74,12 +74,12 @@ export function updatePrescription(
 }
 
 /** false = 복용 종료 (알람이 멈추고 '복용 완료'로), true = 다시 복용 */
-export function setPrescriptionActive(db: DatabaseSync, id: number, active: boolean): void {
+export function setPrescriptionActive(db: SqlDatabase, id: number, active: boolean): void {
   db.prepare(`UPDATE products SET active = ? WHERE id = ? AND type = 'prescription'`).run(active ? 1 : 0, id)
 }
 
 /** 완전히 삭제. 처방 정보·먹는 때·복용 기록은 외래키로 함께 지워진다 */
-export function deletePrescription(db: DatabaseSync, id: number): void {
+export function deletePrescription(db: SqlDatabase, id: number): void {
   db.prepare(`DELETE FROM products WHERE id = ? AND type = 'prescription'`).run(id)
 }
 

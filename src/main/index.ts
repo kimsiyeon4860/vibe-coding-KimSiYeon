@@ -1,22 +1,20 @@
 import { join } from 'node:path'
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../core/db/sql'
 import { app, BrowserWindow, ipcMain, Menu, Tray, type MenuItemConstructorOptions } from 'electron'
 import { clockOf, planDateFor } from '../shared/schedule'
 import { LIFE_EVENT_LABELS, LIFE_EVENTS, type LifeEvent } from '../shared/types'
+import { createCoreApi } from '../core/api'
 import { registerAppHandlers } from './appHandlers'
 import { applyAutoLaunch } from './autoLaunch'
 import { openDatabase } from './db/connection'
-import { getSettings } from './db/settings'
+import { getSettings } from '../core/db/settings'
 import { loadEnv } from './env'
 import { loadPage, PRELOAD_PATH } from './loadPage'
 import { registerAlarmHandlers } from './notifier'
-import { registerPrescriptionHandlers } from './prescriptionHandlers'
-import { registerScheduleHandlers } from './scheduleHandlers'
-import { registerSearchHandlers } from './searchHandlers'
 import { startScheduler, type Scheduler } from './scheduler'
-import { getTodayView, recordLifeEvent } from './today'
+import { getTodayView, recordLifeEvent } from '../core/today'
 import { createLifePrompter, type LifePrompter } from './lifePrompt'
-import { registerSupplementHandlers } from './supplementHandlers'
+import { registerCoreIpc } from './ipc'
 import { createPillIcon } from './trayIcon'
 
 // Windows 토스트 알림이 표시되려면 앱 ID가 필요하다
@@ -24,7 +22,7 @@ const APP_ID = 'com.pillmate.app'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-let db: DatabaseSync | null = null
+let db: SqlDatabase | null = null
 let scheduler: Scheduler | null = null
 /** true일 때만 창을 진짜로 닫는다 (트레이 메뉴 "종료") */
 let isQuitting = false
@@ -64,11 +62,14 @@ function start(): void {
     notifyTodayChanged()
   })
   lifePrompter.check()
-  registerSupplementHandlers(db, activeScheduler.refresh)
-  registerPrescriptionHandlers(db, activeScheduler.refresh)
-  registerSearchHandlers()
+  registerCoreIpc(
+    createCoreApi(db, {
+      onChanged: activeScheduler.refresh,
+      onSettingsSaved: (settings) => applyAutoLaunch(settings.autoLaunch),
+      searchKeys: () => ({ foodSafety: process.env.FOODSAFETY_API_KEY, dataGoKr: process.env.DATA_GO_KR_API_KEY })
+    })
+  )
   registerAppHandlers()
-  registerScheduleHandlers(db, activeScheduler.refresh)
   ipcMain.on('alarm:test', activeScheduler.testAlarm)
 }
 

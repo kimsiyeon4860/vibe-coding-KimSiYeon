@@ -1,5 +1,5 @@
 // 오늘 복용 목록 만들기·기록하기. 3-2단계 알람 스케줄러도 여기를 쓴다.
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from './db/sql'
 import { addDays, format, parseISO } from 'date-fns'
 import { buildDayPlan, planDateFor, scheduledAtFor } from '../shared/schedule'
 import { buildStats, summarizeDay, type StatsView } from '../shared/stats'
@@ -19,7 +19,7 @@ import { getSettings } from './db/settings'
 import { listScheduleSources } from './db/scheduleItems'
 
 /** 복용일 하루의 계획 */
-export function getDayPlan(db: DatabaseSync, planDate: string): DayPlanEntry[] {
+export function getDayPlan(db: SqlDatabase, planDate: string): DayPlanEntry[] {
   return buildDayPlan(
     planDate,
     getSettings(db),
@@ -31,7 +31,7 @@ export function getDayPlan(db: DatabaseSync, planDate: string): DayPlanEntry[] {
 }
 
 /** 지금 시각 기준 오늘 화면 */
-export function getTodayView(db: DatabaseSync, now: Date = new Date()): TodayView {
+export function getTodayView(db: SqlDatabase, now: Date = new Date()): TodayView {
   const settings = getSettings(db)
   const planDate = planDateFor(now, settings)
   const entries = getDayPlan(db, planDate)
@@ -48,7 +48,7 @@ export function getTodayView(db: DatabaseSync, now: Date = new Date()): TodayVie
 
 /** 먹음/건너뜀/스누즈 기록. 계획에 없는 항목이면 false */
 export function recordCheck(
-  db: DatabaseSync,
+  db: SqlDatabase,
   planDate: string,
   productId: number,
   slot: Slot,
@@ -68,7 +68,7 @@ export function recordCheck(
   return true
 }
 
-export function undoCheck(db: DatabaseSync, planDate: string, productId: number, slot: Slot): void {
+export function undoCheck(db: SqlDatabase, planDate: string, productId: number, slot: Slot): void {
   undoIntake(db, planDate, productId, slot)
 }
 
@@ -76,7 +76,7 @@ export function undoCheck(db: DatabaseSync, planDate: string, productId: number,
 const STREAK_LOOKBACK_DAYS = 90
 
 /** 최근 N 복용일(오늘 포함)의 통계 */
-export function getStatsView(db: DatabaseSync, days: number, now: Date = new Date()): StatsView {
+export function getStatsView(db: SqlDatabase, days: number, now: Date = new Date()): StatsView {
   const today = planDateFor(now, getSettings(db))
   const summarize = (back: number) => {
     const planDate = format(addDays(parseISO(today), -back), 'yyyy-MM-dd')
@@ -88,7 +88,7 @@ export function getStatsView(db: DatabaseSync, days: number, now: Date = new Dat
 
 /** 생활 기록. time("HH:mm")을 주면 그 복용일의 그 시각, 없으면 지금 */
 export function recordLifeEvent(
-  db: DatabaseSync,
+  db: SqlDatabase,
   planDate: string,
   event: LifeEvent,
   time?: Hm,
@@ -99,10 +99,10 @@ export function recordLifeEvent(
 }
 
 /** 식사 거름 */
-export function skipMeal(db: DatabaseSync, planDate: string, meal: MealEvent, now: Date = new Date()): void {
+export function skipMeal(db: SqlDatabase, planDate: string, meal: MealEvent, now: Date = new Date()): void {
   skipDayMeal(db, planDate, meal, now.toISOString())
 }
 
-export function clearLifeEvent(db: DatabaseSync, planDate: string, event: LifeEvent): void {
+export function clearLifeEvent(db: SqlDatabase, planDate: string, event: LifeEvent): void {
   deleteDayEvent(db, planDate, event)
 }

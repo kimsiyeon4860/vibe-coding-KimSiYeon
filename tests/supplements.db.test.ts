@@ -1,7 +1,7 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
-import { MIGRATIONS, migrate } from '../src/main/db/migrations'
+import { MIGRATIONS, migrate } from '../src/core/db/migrations'
 import {
   createSupplement,
   deleteSupplement,
@@ -9,7 +9,7 @@ import {
   listSupplements,
   setSupplementActive,
   updateSupplement
-} from '../src/main/db/supplements'
+} from '../src/core/db/supplements'
 import type { SupplementInput } from '../src/shared/types'
 
 const omega3: SupplementInput = {
@@ -26,7 +26,7 @@ const omega3: SupplementInput = {
   ]
 }
 
-let db: DatabaseSync
+let db: SqlDatabase
 
 beforeEach(() => {
   db = openDatabase(':memory:')

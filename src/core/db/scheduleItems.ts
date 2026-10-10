@@ -1,5 +1,5 @@
 // 복용 시점(schedule_items) 저장·조회. 영양제와 처방약이 함께 쓴다.
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from './sql'
 import { prescriptionEndDate } from '../../shared/prescription'
 import type { ScheduleSource } from '../../shared/schedule'
 import { SLOTS, type MealTiming, type ProductKind, type ScheduleItem, type Slot } from '../../shared/types'
@@ -12,7 +12,7 @@ interface ScheduleRow {
 }
 
 /** 제품들의 복용 시점 (제품 id → 슬롯 순서 목록) */
-export function loadSchedules(db: DatabaseSync, type: ProductKind): Map<number, ScheduleItem[]> {
+export function loadSchedules(db: SqlDatabase, type: ProductKind): Map<number, ScheduleItem[]> {
   const rows = db
     .prepare(
       `SELECT s.product_id, s.slot, s.custom_time, s.dose FROM schedule_items s
@@ -30,7 +30,7 @@ export function loadSchedules(db: DatabaseSync, type: ProductKind): Map<number, 
   return result
 }
 
-export function loadSchedule(db: DatabaseSync, productId: number): ScheduleItem[] {
+export function loadSchedule(db: SqlDatabase, productId: number): ScheduleItem[] {
   const rows = db
     .prepare('SELECT product_id, slot, custom_time, dose FROM schedule_items WHERE product_id = ?')
     .all(productId) as unknown as ScheduleRow[]
@@ -43,7 +43,7 @@ export function loadSchedule(db: DatabaseSync, productId: number): ScheduleItem[
  * 복용 시점을 새 목록으로 바꾼다. 원래 있던 슬롯은 등록 시각을 유지하고, 새 슬롯만 now로 기록한다
  * (그래야 이름만 고쳐도 오늘 이미 지난 알람이 조용해지지 않는다). 트랜잭션 안에서 부를 것.
  */
-export function replaceSchedule(db: DatabaseSync, productId: number, schedule: ScheduleItem[], now: Date): void {
+export function replaceSchedule(db: SqlDatabase, productId: number, schedule: ScheduleItem[], now: Date): void {
   const existing = db
     .prepare('SELECT slot, created_at FROM schedule_items WHERE product_id = ?')
     .all(productId) as unknown as { slot: Slot; created_at: string }[]
@@ -59,7 +59,7 @@ export function replaceSchedule(db: DatabaseSync, productId: number, schedule: S
 }
 
 /** 오늘 계획을 만들 재료: 영양제·처방약 × 복용 시점 (사용 중지·처방 기간 포함) */
-export function listScheduleSources(db: DatabaseSync): ScheduleSource[] {
+export function listScheduleSources(db: SqlDatabase): ScheduleSource[] {
   const rows = db
     .prepare(
       `SELECT p.id AS productId, p.name AS productName, p.type AS kind, p.active,

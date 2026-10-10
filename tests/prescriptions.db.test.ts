@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
 import {
@@ -8,9 +8,9 @@ import {
   listPrescriptions,
   setPrescriptionActive,
   updatePrescription
-} from '../src/main/db/prescriptions'
-import { createSupplement, listSupplements, updateSupplement } from '../src/main/db/supplements'
-import { getDayPlan, getTodayView, recordCheck } from '../src/main/today'
+} from '../src/core/db/prescriptions'
+import { createSupplement, listSupplements, updateSupplement } from '../src/core/db/supplements'
+import { getDayPlan, getTodayView, recordCheck } from '../src/core/today'
 import type { PrescriptionInput, SupplementInput } from '../src/shared/types'
 
 const coldMedicine: PrescriptionInput = {
@@ -37,7 +37,7 @@ const vitaminD: SupplementInput = {
 /** 2026-10-10 07:00 KST — 아침 알람 전에 등록 */
 const MORNING = new Date('2026-10-09T22:00:00Z')
 
-let db: DatabaseSync
+let db: SqlDatabase
 
 beforeEach(() => {
   db = openDatabase(':memory:')
@@ -115,7 +115,7 @@ describe('복용 시점 등록 시각', () => {
       { ...vitaminD, name: '비타민D3', schedule: [...vitaminD.schedule, { slot: 'dinner', customTime: null, dose: '' }] },
       later
     )
-    const rows = db.prepare('SELECT slot, created_at FROM schedule_items ORDER BY slot').all()
+    const rows = db.prepare('SELECT slot, created_at FROM schedule_items ORDER BY slot').all() as Record<string, unknown>[]
     expect(rows.map((r) => ({ ...r }))).toEqual([
       { slot: 'breakfast', created_at: created.toISOString() },
       { slot: 'dinner', created_at: later.toISOString() }

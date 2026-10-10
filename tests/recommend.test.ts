@@ -1,8 +1,8 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import rawRules from '../rules/timing-rules.json'
 import { openDatabase } from '../src/main/db/connection'
-import { applyScheduleChanges, createSupplement, getSupplement } from '../src/main/db/supplements'
+import { applyScheduleChanges, createSupplement, getSupplement } from '../src/core/db/supplements'
 import {
   findConflicts,
   parseLabelInstruction,
@@ -224,7 +224,7 @@ describe('적용', () => {
   })
 
   describe('DB 일괄 저장', () => {
-    let db: DatabaseSync
+    let db: SqlDatabase
     beforeEach(() => {
       db = openDatabase(':memory:')
     })
@@ -256,7 +256,9 @@ describe('적용', () => {
         { slot: 'bedtime', customTime: null, dose: '1정' }
       ])
       expect(getSupplement(db, b.id)?.schedule.map((s) => s.slot)).toEqual(['lunch'])
-      const rows = db.prepare('SELECT slot, created_at FROM schedule_items WHERE product_id = ? ORDER BY id').all(a.id)
+      const rows = db
+        .prepare('SELECT slot, created_at FROM schedule_items WHERE product_id = ? ORDER BY id')
+        .all(a.id) as { created_at: string }[]
       expect(rows.map((r) => r.created_at)).toEqual([created.toISOString(), later.toISOString()])
     })
   })

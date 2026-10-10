@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildDrugSearchUrl, searchOtcDrugs } from '../src/main/services/drugInfo'
+import { buildDrugSearchUrl, searchOtcDrugs } from '../src/core/services/drugInfo'
 import { docToText, isSelectableOtc, parseMaterials, toDrugProduct } from '../src/shared/drugData'
 import { mergeSearchResults, type SupplementSearchResult } from '../src/shared/publicData'
 import { recommend, rulesOf } from '../src/shared/recommend'

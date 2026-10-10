@@ -1,9 +1,9 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
-import { getSettings, saveSettings } from '../src/main/db/settings'
-import { createSupplement, deleteSupplement, setSupplementActive, updateSupplement } from '../src/main/db/supplements'
-import { getDayPlan, getTodayView, recordCheck, undoCheck } from '../src/main/today'
+import { getSettings, saveSettings } from '../src/core/db/settings'
+import { createSupplement, deleteSupplement, setSupplementActive, updateSupplement } from '../src/core/db/supplements'
+import { getDayPlan, getTodayView, recordCheck, undoCheck } from '../src/core/today'
 import { DEFAULT_SETTINGS } from '../src/shared/schedule'
 import type { SupplementInput } from '../src/shared/types'
 
@@ -19,7 +19,7 @@ const DATE = '2026-10-10'
 /** 2026-10-10 09:00 KST */
 const NOW = new Date('2026-10-10T00:00:00Z')
 
-let db: DatabaseSync
+let db: SqlDatabase
 
 beforeEach(() => {
   db = openDatabase(':memory:')

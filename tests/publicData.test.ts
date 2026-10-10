@@ -1,8 +1,8 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
-import { createSupplement, getSupplement, updateSupplement } from '../src/main/db/supplements'
-import { buildSearchUrl, searchSupplements } from '../src/main/services/foodSafety'
+import { createSupplement, getSupplement, updateSupplement } from '../src/core/db/supplements'
+import { buildSearchUrl, searchSupplements } from '../src/core/services/foodSafety'
 import { parseRawMaterials, parseStandardIngredients, toPublicProduct } from '../src/shared/publicData'
 import { recommend } from '../src/shared/recommend'
 import { DEFAULT_SETTINGS } from '../src/shared/schedule'
@@ -147,7 +147,7 @@ describe('식품안전나라 검색', () => {
 })
 
 describe('출처 저장', () => {
-  let db: DatabaseSync
+  let db: SqlDatabase
   beforeEach(() => {
     db = openDatabase(':memory:')
   })

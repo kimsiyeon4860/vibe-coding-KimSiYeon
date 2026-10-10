@@ -1,11 +1,11 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
-import { MIGRATIONS } from '../src/main/db/migrations'
-import { createPrescription } from '../src/main/db/prescriptions'
-import { saveSettings } from '../src/main/db/settings'
-import { createSupplement } from '../src/main/db/supplements'
-import { clearLifeEvent, getDayPlan, getTodayView, recordLifeEvent } from '../src/main/today'
+import { MIGRATIONS } from '../src/core/db/migrations'
+import { createPrescription } from '../src/core/db/prescriptions'
+import { saveSettings } from '../src/core/db/settings'
+import { createSupplement } from '../src/core/db/supplements'
+import { clearLifeEvent, getDayPlan, getTodayView, recordLifeEvent } from '../src/core/today'
 import { dueEntries } from '../src/shared/alarm'
 import {
   buildDayPlan,
@@ -123,7 +123,7 @@ describe('기상 기록을 물어봐도 되는 시각', () => {
 })
 
 describe('DB: 생활 기록', () => {
-  let db: DatabaseSync
+  let db: SqlDatabase
   beforeEach(() => {
     db = openDatabase(':memory:')
   })

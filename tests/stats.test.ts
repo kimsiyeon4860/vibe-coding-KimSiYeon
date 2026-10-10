@@ -1,9 +1,9 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { SqlDatabase } from '../src/core/db/sql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../src/main/db/connection'
-import { createPrescription } from '../src/main/db/prescriptions'
-import { createSupplement, updateSupplement } from '../src/main/db/supplements'
-import { getStatsView, recordCheck } from '../src/main/today'
+import { createPrescription } from '../src/core/db/prescriptions'
+import { createSupplement, updateSupplement } from '../src/core/db/supplements'
+import { getStatsView, recordCheck } from '../src/core/today'
 import { buildStats, summarizeDay, type StatEntry } from '../src/shared/stats'
 import type { DayPlanEntry, SupplementInput } from '../src/shared/types'
 
@@ -135,7 +135,7 @@ describe('buildStats', () => {
 })
 
 describe('DB 통계 (getStatsView)', () => {
-  let db: DatabaseSync
+  let db: SqlDatabase
   beforeEach(() => {
     db = openDatabase(':memory:')
   })
