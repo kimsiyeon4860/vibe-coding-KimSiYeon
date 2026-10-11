@@ -78,7 +78,7 @@ function fromDraft(d: SettingsDraft): Settings {
   }
 }
 
-// 설정 탭: 생활 시간 → 슬롯 알람 시간, 알람 테스트
+// 설정 창(머리글의 톱니 버튼): 생활 시간 → 슬롯 알람 시간, 알람 테스트
 export default function SettingsPage() {
   const [draft, setDraft] = useState<SettingsDraft | null>(null)
   const [errors, setErrors] = useState<string[]>([])

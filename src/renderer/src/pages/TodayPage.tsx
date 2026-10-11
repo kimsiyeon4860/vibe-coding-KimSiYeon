@@ -117,7 +117,7 @@ export default function TodayPage() {
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
           오늘 먹을 약이 없습니다.
           <br />
-          <b>영양제</b>·<b>처방약</b> 탭에서 추가하고 먹는 때를 골라 주세요.
+          <b>내 약</b> 화면에서 영양제·처방약을 추가하고 먹는 때를 골라 주세요.
         </div>
       ) : (
         <ol className="space-y-4">

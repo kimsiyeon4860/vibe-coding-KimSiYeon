@@ -7,11 +7,20 @@ import SupplementForm from '../components/SupplementForm'
 /** 입력 창 상태: 닫힘 / 새로 추가 / 수정 */
 type Editing = null | { mode: 'create' } | { mode: 'edit'; supplement: Supplement }
 
-export default function SupplementsPage() {
+interface Props {
+  /** 추천 보드를 열고 닫을 때 ('내 약' 화면이 그동안 처방약 목록을 숨긴다) */
+  onRecommendingChange?: (recommending: boolean) => void
+}
+
+export default function SupplementsPage({ onRecommendingChange }: Props) {
   const [supplements, setSupplements] = useState<Supplement[] | null>(null)
   const [editing, setEditing] = useState<Editing>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [recommending, setRecommending] = useState(false)
+
+  useEffect(() => {
+    onRecommendingChange?.(recommending)
+  }, [recommending, onRecommendingChange])
 
   const reload = useCallback(async () => {
     const [list, s] = await Promise.all([window.api.supplements.list(), window.api.settings.get()])
