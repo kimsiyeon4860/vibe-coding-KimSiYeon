@@ -1,6 +1,6 @@
 // 오늘 복용 목록 만들기·기록하기. 3-2단계 알람 스케줄러도 여기를 쓴다.
 import type { SqlDatabase } from './db/sql'
-import { addDays, format, parseISO } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { buildDayPlan, planDateFor, scheduledAtFor } from '../shared/schedule'
 import { buildStats, summarizeDay, type StatsView } from '../shared/stats'
 import {
@@ -13,7 +13,7 @@ import {
   type Slot,
   type TodayView
 } from '../shared/types'
-import { addIntakeLog, listFinalOutcomes, listIntakeLogs, undoIntake } from './db/intakeLogs'
+import { addIntakeLog, listFinalOutcomes, listFirstActivity, listIntakeLogs, undoIntake } from './db/intakeLogs'
 import { deleteDayEvent, listDayEvents, listDaySkips, saveDayEvent, skipDayMeal } from './db/lifeEvents'
 import { getSettings } from './db/settings'
 import { listScheduleSources } from './db/scheduleItems'
@@ -84,6 +84,18 @@ export function getStatsView(db: SqlDatabase, days: number, now: Date = new Date
   }
   const range = Array.from({ length: Math.max(days, STREAK_LOOKBACK_DAYS) }, (_, i) => summarize(i)).reverse()
   return buildStats(range.slice(-days), range)
+}
+
+/** '전체' 통계에 쓸 날 수: 가장 이른 일정 등록·기록 복용일부터 오늘까지 (최소 1, 최대 365일) */
+export const MAX_ALL_STATS_DAYS = 365
+export function allStatsDays(db: SqlDatabase, now: Date = new Date()): number {
+  const settings = getSettings(db)
+  const today = planDateFor(now, settings)
+  const firsts = listFirstActivity(db).map((v) => (v.length > 10 ? planDateFor(new Date(v), settings) : v))
+  if (firsts.length === 0) return 1
+  const first = firsts.reduce((a, b) => (a < b ? a : b))
+  const days = differenceInCalendarDays(parseISO(today), parseISO(first)) + 1
+  return Math.min(MAX_ALL_STATS_DAYS, Math.max(1, days))
 }
 
 /** 생활 기록. time("HH:mm")을 주면 그 복용일의 그 시각, 없으면 지금 */

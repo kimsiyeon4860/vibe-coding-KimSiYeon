@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 이 조건을 처음에 놓쳐 Windows 데스크톱(Electron) 앱으로 만들었다가, 핵심 로직을 `src/core`·`src/shared`로 분리해 둔 덕에 **웹판(`src/web`)으로 옮겼다**. 데스크톱판은 부록으로 남아 있다. → 새 기능은 **웹판에서 동작하는지 먼저** 확인한다.
 - 웹판 구조: sql.js(브라우저용 SQLite) + IndexedDB 저장, `window.api`를 `src/web/platform.ts`가 브라우저 안에서 구현(같은 `core/api`·`alarmEngine`·`promptEngine` 사용), 알람·확인 창은 페이지 안 오버레이(`src/web/WebRoot.tsx`)로 같은 React 컴포넌트를 띄운다. 검색 API는 두 기관 모두 CORS를 허용해 브라우저에서 직접 부른다(키는 설정 화면 → localStorage, 식품안전나라 기본 `sample`).
 - 웹판 한계: 탭이 열려 있어야 알람, 데이터는 그 브라우저에만(설정의 백업), 같은 브라우저에서 탭 하나(Web Locks).
-- **화면 3개 이하 (과제 하드 제약)**: 화면은 `오늘 복용` · `내 약`(영양제+처방약, `pages/MedicinesPage.tsx`) · `기록` 3개다. 설정은 탭이 아니라 머리글의 ⚙ 버튼으로 여는 창(`App.tsx`). 새 기능을 넣을 때 탭을 늘리지 말 것. 그 밖의 금지 항목(로그인, 서버, 자체 학습 모델, 데스크톱 앱 등)도 과제 범위 제약을 따른다.
+- **화면 3개 이하 (과제 하드 제약)**: 화면은 `오늘 복용`(아래로 내리면 복용 기록 `HistoryPage` — 최근 7일·30일·전체) · `내 약`(영양제+처방약, `pages/MedicinesPage.tsx`) · `설정` 3개다 (`App.tsx`). '전체' 통계는 가장 이른 일정 등록·기록 복용일부터 최대 365일(`allStatsDays`). 새 기능을 넣을 때 탭을 늘리지 말 것. 그 밖의 금지 항목(로그인, 서버, 자체 학습 모델, 데스크톱 앱 등)도 과제 범위 제약을 따른다.
 
 ## 0. 현재 저장소 상태 (2026-10-10 기준)
 

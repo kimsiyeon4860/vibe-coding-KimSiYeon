@@ -33,6 +33,17 @@ export function listFinalOutcomes(db: SqlDatabase, planDate: string): LoggedOutc
   return [...last.values()]
 }
 
+/** 가장 이른 일정 등록 시각과 기록 복용일 ('전체' 통계의 시작점). 아무것도 없으면 빈 배열 */
+export function listFirstActivity(db: SqlDatabase): string[] {
+  const row = db
+    .prepare(
+      `SELECT (SELECT MIN(created_at) FROM schedule_items) AS firstSchedule,
+              (SELECT MIN(plan_date) FROM intake_logs) AS firstLog`
+    )
+    .get() as { firstSchedule: string | null; firstLog: string | null } | undefined
+  return [row?.firstSchedule, row?.firstLog].filter((v): v is string => typeof v === 'string')
+}
+
 export function addIntakeLog(db: SqlDatabase, log: NewIntakeLog): void {
   db.prepare(
     `INSERT INTO intake_logs (product_id, slot, plan_date, scheduled_at, action, acted_at)

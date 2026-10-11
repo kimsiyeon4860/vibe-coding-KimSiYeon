@@ -39,6 +39,7 @@ import { searchOtcDrugs } from './services/drugInfo'
 import { searchSupplements } from './services/foodSafety'
 import {
   clearLifeEvent,
+  allStatsDays,
   getStatsView,
   getTodayView,
   recordCheck,
@@ -156,7 +157,7 @@ export function createCoreApi(db: SqlDatabase, hooks: CoreHooks) {
     },
 
     stats: {
-      get: (days: unknown) => getStatsView(db, days === 30 ? 30 : 7)
+      get: (days: unknown) => getStatsView(db, days === 'all' ? allStatsDays(db) : days === 30 ? 30 : 7)
     },
 
     search: {

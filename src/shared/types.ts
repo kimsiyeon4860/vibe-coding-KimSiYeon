@@ -421,8 +421,8 @@ export interface PillMateApi {
     respond: (answer: PromptAnswer) => void
   }
   stats: {
-    /** 최근 7일 또는 30일 복용 통계 */
-    get: (days: 7 | 30) => Promise<StatsView>
+    /** 최근 7일·30일 또는 전체(처음 등록·기록한 날부터, 최대 365일) 복용 통계 */
+    get: (days: 7 | 30 | 'all') => Promise<StatsView>
   }
   app: {
     envInfo: () => Promise<EnvInfo>

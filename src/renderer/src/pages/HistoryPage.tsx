@@ -3,21 +3,26 @@ import { ko } from 'date-fns/locale'
 import { useEffect, useState } from 'react'
 import type { DayStats, StatsView } from '../../../shared/stats'
 
-const PERIODS = [7, 30] as const
+const PERIODS = [7, 30, 'all'] as const
 type Period = (typeof PERIODS)[number]
+const periodLabel = (p: Period) => (p === 'all' ? '전체' : `최근 ${p}일`)
 
 const percent = (rate: number | null) => (rate === null ? '–' : `${Math.round(rate * 100)}%`)
 
-// 기록 탭: 복용률·날짜별 막대·연속 완료일·제품별 복용률
+// 복용 기록(오늘 복용 화면 아래쪽): 복용률·날짜별 막대·연속 완료일·제품별 복용률
 export default function HistoryPage() {
   const [period, setPeriod] = useState<Period>(7)
   const [stats, setStats] = useState<StatsView | null>(null)
 
   useEffect(() => {
     let alive = true
-    void window.api.stats.get(period).then((s) => alive && setStats(s))
+    const load = () => void window.api.stats.get(period).then((s) => alive && setStats(s))
+    load()
+    // 바로 위 오늘 목록에서 먹었어요·건너뛰기를 누르면 통계도 다시 계산한다
+    const offChanged = window.api.today.onChanged(load)
     return () => {
       alive = false
+      offChanged()
     }
   }, [period])
 
@@ -34,7 +39,7 @@ export default function HistoryPage() {
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1 ${period === p ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
             >
-              최근 {p}일
+              {periodLabel(p)}
             </button>
           ))}
         </div>
@@ -43,7 +48,7 @@ export default function HistoryPage() {
       {stats && (
         <>
           <div className="grid grid-cols-3 gap-3">
-            <Card label={`최근 ${period}일 복용률`} value={percent(stats.rate)} accent />
+            <Card label={`${periodLabel(period)} 복용률`} value={percent(stats.rate)} accent />
             <Card label="먹음 · 건너뜀 · 놓침" value={`${stats.taken} · ${stats.skipped} · ${stats.missed}`} />
             <Card label="연속 완료" value={`${stats.streak}일`} />
           </div>
@@ -140,10 +145,12 @@ function Legend() {
 function DayBars({ days }: { days: DayStats[] }) {
   const max = Math.max(1, ...days.map((d) => d.taken + d.skipped + d.missed + d.upcoming))
   const dense = days.length > 10
+  // 날짜 글자는 6개 안팎만 (전체 기간은 막대가 수백 개일 수 있다)
+  const labelStep = dense ? Math.max(5, Math.ceil(days.length / 6)) : 1
   const BAR_HEIGHT = 120
 
   return (
-    <div className="flex items-end gap-1" style={{ height: BAR_HEIGHT + 36 }}>
+    <div className={`flex items-end ${days.length > 60 ? 'gap-px' : 'gap-1'}`} style={{ height: BAR_HEIGHT + 36 }}>
       {days.map((d, i) => {
         const date = parseISO(d.planDate)
         const segment = (n: number, className: string) =>
@@ -152,15 +159,15 @@ function DayBars({ days }: { days: DayStats[] }) {
           d.upcoming ? `, 예정 ${d.upcoming}` : ''
         }`
         return (
-          <div key={d.planDate} title={title} className="flex flex-1 flex-col items-center justify-end">
+          <div key={d.planDate} title={title} className="flex min-w-0 flex-1 flex-col items-center justify-end">
             <div className="flex w-full max-w-8 flex-col-reverse overflow-hidden rounded-sm">
               {segment(d.taken, 'bg-green-500')}
               {segment(d.skipped, 'bg-slate-300')}
               {segment(d.missed, 'bg-red-400')}
               {segment(d.upcoming, 'border border-dashed border-slate-400')}
             </div>
-            <span className="mt-1 h-8 text-center text-[10px] leading-tight text-slate-500">
-              {!dense || i % 5 === 0 || i === days.length - 1 ? (
+            <span className="mt-1 h-8 whitespace-nowrap text-center text-[10px] leading-tight text-slate-500">
+              {i % labelStep === 0 || i === days.length - 1 ? (
                 <>
                   {format(date, 'M/d')}
                   {!dense && (
